@@ -40,9 +40,23 @@ static void WriteNumber(const wchar_t* path, const wchar_t* key,
     WritePrivateProfileStringW(L"Integration", key, buffer, path);
 }
 
+static void WritePlanNumber(const wchar_t* path, const wchar_t* key,
+                            long long value) {
+    wchar_t buffer[48];
+    _snwprintf_s(buffer, _countof(buffer), _TRUNCATE, L"%lld", value);
+    WritePrivateProfileStringW(L"Plan", key, buffer, path);
+}
+
 static int64_t ReadNumber(const wchar_t* path, const wchar_t* key) {
     wchar_t buffer[48];
     GetPrivateProfileStringW(L"Integration", key, L"0", buffer,
+                             _countof(buffer), path);
+    return _wtoi64(buffer);
+}
+
+static int64_t ReadPlanNumber(const wchar_t* path, const wchar_t* key) {
+    wchar_t buffer[48];
+    GetPrivateProfileStringW(L"Plan", key, L"0", buffer,
                              _countof(buffer), path);
     return _wtoi64(buffer);
 }
@@ -112,6 +126,41 @@ BOOL CatimeIpcPersistence_Load(CatimeIpcState* state,
     state->acknowledgedRevision = (uint64_t)acknowledgedValue;
     state->snapshot.cause = CATIME_IPC_CAUSE_SHUTDOWN;
     state->focusedAtResume = state->snapshot.focusedSeconds;
+    int64_t queueCount = ReadNumber(path, L"queuedPhaseCount");
+    int64_t queueNext = ReadNumber(path, L"nextQueuedPhase");
+    if (queueCount < 0 || queueCount > CATIME_IPC_MAX_QUEUED_PHASES ||
+        queueNext < 0 || queueNext > queueCount) {
+        CatimeIpcState_Init(state);
+        return FALSE;
+    }
+    for (int64_t index = 0; index < queueCount; index++) {
+        wchar_t key[48];
+        wchar_t queuedId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%lldSessionId", index);
+        GetPrivateProfileStringW(L"Plan", key, L"", queuedId,
+                                 _countof(queuedId), path);
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%lldDuration", index);
+        int64_t duration = ReadPlanNumber(path, key);
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%lldType", index);
+        wchar_t queuedPhase[24];
+        GetPrivateProfileStringW(L"Plan", key, L"focus", queuedPhase,
+                                 _countof(queuedPhase), path);
+        CatimeIpcPlanStep* step = &state->queuedPhases[index];
+        if (!queuedId[0] || duration < 1 ||
+            duration > CATIME_IPC_MAX_DURATION_SECONDS ||
+            WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, queuedId, -1,
+                step->sessionId, sizeof(step->sessionId), NULL, NULL) <= 0) {
+            CatimeIpcState_Init(state);
+            return FALSE;
+        }
+        step->durationSeconds = (uint32_t)duration;
+        step->phase = ParsePhase(queuedPhase);
+    }
+    state->queuedPhaseCount = (uint32_t)queueCount;
+    state->nextQueuedPhase = (uint32_t)queueNext;
     if (completedEvent && CatimeIpcState_Tick(state, nowMs, completedEvent)) {
         CatimeIpcPersistence_Save(state);
     }
@@ -144,6 +193,26 @@ BOOL CatimeIpcPersistence_Save(const CatimeIpcState* state) {
     WriteNumber(path, L"revision", (long long)state->snapshot.revision);
     WriteNumber(path, L"acknowledgedRevision",
                 (long long)state->acknowledgedRevision);
+    WriteNumber(path, L"queuedPhaseCount", state->queuedPhaseCount);
+    WriteNumber(path, L"nextQueuedPhase", state->nextQueuedPhase);
+    for (uint32_t index = 0; index < state->queuedPhaseCount; index++) {
+        const CatimeIpcPlanStep* step = &state->queuedPhases[index];
+        wchar_t key[48];
+        wchar_t queuedId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+        wchar_t queuedPhase[24];
+        if (!ToWide(step->sessionId, queuedId, _countof(queuedId)) ||
+            !ToWide(CatimeIpc_PhaseName(step->phase), queuedPhase,
+                    _countof(queuedPhase))) return FALSE;
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%luSessionId", (unsigned long)index);
+        WritePrivateProfileStringW(L"Plan", key, queuedId, path);
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%luDuration", (unsigned long)index);
+        WritePlanNumber(path, key, step->durationSeconds);
+        _snwprintf_s(key, _countof(key), _TRUNCATE,
+                     L"phase%luType", (unsigned long)index);
+        WritePrivateProfileStringW(L"Plan", key, queuedPhase, path);
+    }
     WritePrivateProfileStringW(NULL, NULL, NULL, path);
     return TRUE;
 }

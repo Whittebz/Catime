@@ -28,10 +28,19 @@ typedef struct {
 } CatimeIpcSnapshot;
 
 typedef struct {
+    char sessionId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+    CatimeIpcPhase phase;
+    uint32_t durationSeconds;
+} CatimeIpcPlanStep;
+
+typedef struct {
     CatimeIpcSnapshot snapshot;
     uint32_t focusedAtResume;
     uint64_t acknowledgedRevision;
     bool hasSession;
+    CatimeIpcPlanStep queuedPhases[CATIME_IPC_MAX_QUEUED_PHASES];
+    uint32_t queuedPhaseCount;
+    uint32_t nextQueuedPhase;
 } CatimeIpcState;
 
 void CatimeIpcState_Init(CatimeIpcState* state);
@@ -72,5 +81,12 @@ bool CatimeIpcState_GetAt(const CatimeIpcState* state,
 CatimeIpcError CatimeIpcState_Acknowledge(CatimeIpcState* state,
                                           const char* sessionId,
                                           uint64_t revision);
+CatimeIpcError CatimeIpcState_QueuePhase(CatimeIpcState* state,
+                                         const char* sessionId,
+                                         uint32_t durationSeconds,
+                                         CatimeIpcPhase phase);
+bool CatimeIpcState_AdvanceQueued(CatimeIpcState* state,
+                                  int64_t nowMs,
+                                  CatimeIpcSnapshot* output);
 
 #endif /* CATIME_IPC_STATE_H */

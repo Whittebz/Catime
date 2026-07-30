@@ -28,7 +28,13 @@ void IpcSession_Shutdown(void);
 BOOL IpcSession_Execute(const CatimeIpcRequest* request,
                         BOOL* handshaken,
                         IpcReply* reply);
-BOOL IpcSession_TakeEvent(CatimeIpcSnapshot* snapshot);
+BOOL IpcSession_PeekEvent(CatimeIpcSnapshot* snapshot);
+void IpcSession_MarkEventSent(const CatimeIpcSnapshot* snapshot);
+void IpcSession_ResetEventDelivery(void);
+BOOL IpcEventQueue_Initialize(void);
+void IpcEventQueue_Shutdown(void);
+void IpcEventQueue_Push(const CatimeIpcSnapshot* snapshot);
+BOOL IpcEventQueue_Acknowledge(const char* sessionId, uint64_t revision);
 
 void IpcProtocol_HandleFrame(HANDLE pipe, const char* frame,
                              size_t length, BOOL* handshaken,

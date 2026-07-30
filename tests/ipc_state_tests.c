@@ -60,9 +60,27 @@ static void TestTimeout(void) {
     assert(snapshot.cause == CATIME_IPC_CAUSE_TIMEOUT);
 }
 
+static void TestQueuedPhasesAdvanceWithoutClient(void) {
+    CatimeIpcState state;
+    CatimeIpcSnapshot snapshot;
+    CatimeIpcState_Init(&state);
+    assert(CatimeIpcState_Start(&state, "focus-1", 2,
+        CATIME_IPC_PHASE_FOCUS, 1000, &snapshot) == CATIME_IPC_ERROR_NONE);
+    assert(CatimeIpcState_QueuePhase(&state, "break-1", 1,
+        CATIME_IPC_PHASE_SHORT_BREAK) == CATIME_IPC_ERROR_NONE);
+    assert(CatimeIpcState_QueuePhase(&state, "focus-2", 2,
+        CATIME_IPC_PHASE_FOCUS) == CATIME_IPC_ERROR_NONE);
+    assert(CatimeIpcState_Tick(&state, 3000, &snapshot));
+    assert(CatimeIpcState_AdvanceQueued(&state, 3000, &snapshot));
+    assert(strcmp(snapshot.sessionId, "break-1") == 0);
+    assert(snapshot.phase == CATIME_IPC_PHASE_SHORT_BREAK);
+    assert(state.nextQueuedPhase == 1);
+}
+
 int main(void) {
     TestLifecycle();
     TestIdempotencyAndConflict();
     TestTimeout();
+    TestQueuedPhasesAdvanceWithoutClient();
     return 0;
 }

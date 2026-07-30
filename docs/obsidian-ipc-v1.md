@@ -40,7 +40,7 @@ The client sends `hello` before any other command:
 The server responds:
 
 ```json
-{"type":"helloAck","protocol":1,"catimeVersion":"1.5.0","distributionVersion":"1.5.0-wpc.1","buildCommit":"COMMIT_SHA","capabilities":["countdown","pause","resume","cancel","completeEvents","stateRecovery"],"requestId":"r1"}
+{"type":"helloAck","protocol":1,"catimeVersion":"1.5.0","distributionVersion":"1.5.0-wpc.1","buildCommit":"COMMIT_SHA","capabilities":["countdown","pause","resume","cancel","completeEvents","stateRecovery","breakPhases","phaseQueue"],"requestId":"r1"}
 ```
 
 An unsupported protocol returns `unsupported_protocol`. The integration must
@@ -52,6 +52,7 @@ state.
 | Type | Required fields | Meaning |
 | --- | --- | --- |
 | `start` | `requestId`, `sessionId`, `durationSeconds`, `phase` | Start one externally owned countdown |
+| `queuePhase` | `requestId`, `sessionId`, `durationSeconds`, `phase` | Append one phase to the active plan |
 | `pause` | `requestId`, `sessionId` | Pause the matching running session |
 | `resume` | `requestId`, `sessionId` | Resume the matching paused session |
 | `cancel` | `requestId`, `sessionId` | Cancel without recording a completed focus interval |
@@ -61,9 +62,10 @@ state.
 | `ping` | `requestId` | Confirm pipe liveness without reading timer state |
 
 `requestId` and `sessionId` are non-empty UTF-8 strings up to 64 bytes. Week
-Planner Calendar uses UUIDs for session IDs. Phase 1 accepts only `focus`; the
-`short_break` and `long_break` values are reserved for the multi-phase
-capability.
+Planner Calendar uses UUIDs for session IDs. `phase` accepts `focus`,
+`short_break`, and `long_break`. At most 23 phases may be queued after the
+active phase. Queued phases are persisted locally and advance after natural
+timeouts even when Obsidian is closed.
 
 `durationSeconds` is an integer from 1 through 10800 inclusive.
 
@@ -77,6 +79,11 @@ session produces `session_conflict` and is never replaced implicitly.
 
 Commands targeting a session other than the active or recoverable session
 produce `session_mismatch`.
+
+Repeating an identical `queuePhase` is idempotent. Reusing its session ID with
+different phase parameters returns `session_conflict`. Starting the next queued
+session explicitly consumes that queue entry, which lets the client advance a
+phase early without leaving a duplicate behind.
 
 ## State snapshot
 

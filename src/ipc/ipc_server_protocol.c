@@ -155,7 +155,7 @@ static BOOL SerializeReply(const CatimeIpcRequest* request,
             "{\"type\":\"helloAck\",\"protocol\":1,\"catimeVersion\":\"%s\","
             "\"distributionVersion\":\"%s\",\"buildCommit\":\"unknown\","
             "\"capabilities\":[\"countdown\",\"pause\",\"resume\",\"cancel\","
-            "\"completeEvents\",\"stateRecovery\",\"breakPhases\"],"
+            "\"completeEvents\",\"stateRecovery\",\"breakPhases\",\"phaseQueue\"],"
             "\"requestId\":\"%s\"}\n",
             CATIME_VERSION, CATIME_DISTRIBUTION_VERSION, escaped);
         return length > 0 && (size_t)length < capacity;

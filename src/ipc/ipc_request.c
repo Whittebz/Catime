@@ -127,6 +127,7 @@ static CatimeIpcCommand ParseCommand(const char* value) {
     if (strcmp(value, "finish") == 0) return CATIME_IPC_COMMAND_FINISH;
     if (strcmp(value, "getState") == 0) return CATIME_IPC_COMMAND_GET_STATE;
     if (strcmp(value, "ackEvent") == 0) return CATIME_IPC_COMMAND_ACK_EVENT;
+    if (strcmp(value, "queuePhase") == 0) return CATIME_IPC_COMMAND_QUEUE_PHASE;
     if (strcmp(value, "ping") == 0) return CATIME_IPC_COMMAND_PING;
     return CATIME_IPC_COMMAND_INVALID;
 }
@@ -183,7 +184,8 @@ static CatimeIpcError ValidateRequest(const CatimeIpcRequest* request) {
         return request->protocol == CATIME_IPC_PROTOCOL_VERSION
             ? CATIME_IPC_ERROR_NONE : CATIME_IPC_ERROR_UNSUPPORTED_PROTOCOL;
     }
-    if (request->command == CATIME_IPC_COMMAND_START) {
+    if (request->command == CATIME_IPC_COMMAND_START ||
+        request->command == CATIME_IPC_COMMAND_QUEUE_PHASE) {
         if (!request->hasSessionId || !request->hasDuration || !request->hasPhase) {
             return CATIME_IPC_ERROR_INVALID_REQUEST;
         }

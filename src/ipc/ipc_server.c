@@ -31,6 +31,7 @@ static BOOL ReadClientFrames(HANDLE pipe) {
     size_t frameLength = 0;
     void* cache = IpcProtocol_CreateCache();
     if (!cache) return FALSE;
+    IpcSession_ResetEventDelivery();
     while (WaitForSingleObject(s_stopEvent, 0) != WAIT_OBJECT_0) {
         char chunk[512];
         DWORD read = 0;
@@ -60,8 +61,9 @@ static BOOL ReadClientFrames(HANDLE pipe) {
             }
         }
         CatimeIpcSnapshot eventSnapshot;
-        if (handshaken && IpcSession_TakeEvent(&eventSnapshot)) {
-            IpcProtocol_WriteEvent(pipe, &eventSnapshot);
+        if (handshaken && IpcSession_PeekEvent(&eventSnapshot) &&
+            IpcProtocol_WriteEvent(pipe, &eventSnapshot)) {
+            IpcSession_MarkEventSent(&eventSnapshot);
         }
         Sleep(IPC_POLL_INTERVAL_MS);
     }

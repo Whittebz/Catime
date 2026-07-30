@@ -13,7 +13,7 @@
 BOOL CatimeIpcServer_Start(HWND mainWindow);
 void CatimeIpcServer_Stop(void);
 LRESULT CatimeIpcServer_HandleUiMessage(HWND window, LPARAM parameter);
-void CatimeIpcServer_NotifyTimeout(void);
+BOOL CatimeIpcServer_NotifyTimeout(void);
 void CatimeIpcServer_NotifyPauseChanged(BOOL paused);
 void CatimeIpcServer_NotifyCancelled(void);
 

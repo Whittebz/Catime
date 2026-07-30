@@ -95,7 +95,23 @@ CatimeIpcError CatimeIpcState_Start(CatimeIpcState* state,
         }
     }
 
+    CatimeIpcPlanStep queued[CATIME_IPC_MAX_QUEUED_PHASES];
+    uint32_t queuedCount = state->queuedPhaseCount;
+    uint32_t queuedNext = state->nextQueuedPhase;
+    bool preserveQueue = queuedNext < queuedCount &&
+        strcmp(state->queuedPhases[queuedNext].sessionId, sessionId) == 0 &&
+        state->queuedPhases[queuedNext].durationSeconds == durationSeconds &&
+        state->queuedPhases[queuedNext].phase == phase;
+    if (preserveQueue) {
+        memcpy(queued, state->queuedPhases, sizeof(queued));
+        queuedNext++;
+    }
     CatimeIpcState_Init(state);
+    if (preserveQueue) {
+        memcpy(state->queuedPhases, queued, sizeof(queued));
+        state->queuedPhaseCount = queuedCount;
+        state->nextQueuedPhase = queuedNext;
+    }
     state->hasSession = true;
     CopySessionId(state->snapshot.sessionId, sessionId);
     state->snapshot.status = CATIME_IPC_STATUS_RUNNING;
@@ -224,4 +240,55 @@ CatimeIpcError CatimeIpcState_Acknowledge(CatimeIpcState* state,
         state->acknowledgedRevision = revision;
     }
     return CATIME_IPC_ERROR_NONE;
+}
+
+CatimeIpcError CatimeIpcState_QueuePhase(CatimeIpcState* state,
+                                         const char* sessionId,
+                                         uint32_t durationSeconds,
+                                         CatimeIpcPhase phase) {
+    if (!state || !state->hasSession ||
+        CatimeIpc_IsTerminalStatus(state->snapshot.status)) {
+        return CATIME_IPC_ERROR_INVALID_STATE;
+    }
+    if (!CatimeIpc_IsValidDuration(durationSeconds)) {
+        return CATIME_IPC_ERROR_INVALID_DURATION;
+    }
+    if (phase < CATIME_IPC_PHASE_FOCUS || phase > CATIME_IPC_PHASE_LONG_BREAK) {
+        return CATIME_IPC_ERROR_INVALID_REQUEST;
+    }
+    if (!sessionId || sessionId[0] == '\0' ||
+        strlen(sessionId) > CATIME_IPC_MAX_SESSION_ID_BYTES) {
+        return CATIME_IPC_ERROR_INVALID_SESSION_ID;
+    }
+    for (uint32_t index = 0; index < state->queuedPhaseCount; index++) {
+        CatimeIpcPlanStep* existing = &state->queuedPhases[index];
+        if (strcmp(existing->sessionId, sessionId) == 0) {
+            return existing->durationSeconds == durationSeconds &&
+                   existing->phase == phase
+                ? CATIME_IPC_ERROR_NONE : CATIME_IPC_ERROR_SESSION_CONFLICT;
+        }
+    }
+    if (state->queuedPhaseCount >= CATIME_IPC_MAX_QUEUED_PHASES) {
+        return CATIME_IPC_ERROR_INVALID_REQUEST;
+    }
+    CatimeIpcPlanStep* step =
+        &state->queuedPhases[state->queuedPhaseCount++];
+    CopySessionId(step->sessionId, sessionId);
+    step->durationSeconds = durationSeconds;
+    step->phase = phase;
+    return CATIME_IPC_ERROR_NONE;
+}
+
+bool CatimeIpcState_AdvanceQueued(CatimeIpcState* state,
+                                  int64_t nowMs,
+                                  CatimeIpcSnapshot* output) {
+    if (!state || !output ||
+        !CatimeIpc_IsTerminalStatus(state->snapshot.status) ||
+        state->nextQueuedPhase >= state->queuedPhaseCount) {
+        return false;
+    }
+    CatimeIpcPlanStep step = state->queuedPhases[state->nextQueuedPhase];
+    return CatimeIpcState_Start(state, step.sessionId, step.durationSeconds,
+                                step.phase, nowMs, output) ==
+           CATIME_IPC_ERROR_NONE;
 }

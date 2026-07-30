@@ -86,7 +86,7 @@ BOOL TimerEvents_IsActivePomodoroTimer(void);
 void TimerEvents_FormatPomodoroTime(int seconds, wchar_t* buffer,
                                     size_t bufferSize);
 BOOL TimerEvents_HandlePomodoroCompletion(HWND hwnd);
-void TimerEvents_HandleCountdownCompletion(HWND hwnd);
+BOOL TimerEvents_HandleCountdownCompletion(HWND hwnd);
 
 /* Render/cache helpers and main timer tick. */
 BOOL TimerEvents_ShouldRenderMainTimer(void);

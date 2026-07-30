@@ -20,5 +20,11 @@ int main(void) {
     const char* nested = "{\"type\":\"ping\",\"requestId\":\"r3\",\"bad\":{}}";
     assert(CatimeIpcRequest_Parse(nested, strlen(nested), &request) ==
            CATIME_IPC_ERROR_INVALID_REQUEST);
+    const char* queued = "{\"type\":\"queuePhase\",\"requestId\":\"r4\","
+        "\"sessionId\":\"break-1\",\"durationSeconds\":300,"
+        "\"phase\":\"short_break\"}";
+    assert(CatimeIpcRequest_Parse(queued, strlen(queued), &request) ==
+           CATIME_IPC_ERROR_NONE);
+    assert(request.command == CATIME_IPC_COMMAND_QUEUE_PHASE);
     return 0;
 }

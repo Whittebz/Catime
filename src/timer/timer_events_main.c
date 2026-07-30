@@ -48,8 +48,8 @@ BOOL Timer_HasPresentedMainWindowFrame(void) {
     return g_hasLastPaintedTimerText;
 }
 
-void TimerEvents_HandleCountdownCompletion(HWND hwnd) {
-    CatimeIpcServer_NotifyTimeout();
+BOOL TimerEvents_HandleCountdownCompletion(HWND hwnd) {
+    BOOL externalAdvanced = CatimeIpcServer_NotifyTimeout();
     BOOL shouldNotify = CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_OPEN_FILE &&
                         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_LOCK &&
                         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHUTDOWN &&
@@ -69,15 +69,16 @@ void TimerEvents_HandleCountdownCompletion(HWND hwnd) {
     }
 
     if (TimerEvents_ExecuteSystemAction(hwnd, CLOCK_TIMEOUT_ACTION)) {
-        return;
+        return externalAdvanced;
     }
 
     TimerEvents_HandleTimeoutActions(hwnd);
-    if (CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHOW_TIME &&
+    if (!externalAdvanced && CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHOW_TIME &&
         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_COUNT_UP) {
         TimerEvents_ResetTimerState(0);
         TimerEvents_ResetMillisecondAccumulator();
     }
+    return externalAdvanced;
 }
 
 static BOOL HandleMainTimer(HWND hwnd) {
@@ -147,7 +148,9 @@ static BOOL HandleMainTimer(HWND hwnd) {
             if (TimerEvents_IsActivePomodoroTimer()) {
                 pomodoroAdvanced = TimerEvents_HandlePomodoroCompletion(hwnd);
             } else {
-                TimerEvents_HandleCountdownCompletion(hwnd);
+                if (TimerEvents_HandleCountdownCompletion(hwnd)) {
+                    return TRUE;
+                }
             }
             if (pomodoroAdvanced) {
                 return TRUE;

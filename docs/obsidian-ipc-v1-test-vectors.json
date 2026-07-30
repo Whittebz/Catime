@@ -66,6 +66,11 @@
       "valid": true
     },
     {
+      "name": "queue short break",
+      "message": {"type":"queuePhase","requestId":"r12q","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d494","durationSeconds":300,"phase":"short_break"},
+      "valid": true
+    },
+    {
       "name": "unknown command",
       "message": {"type":"rewind","requestId":"r13","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
       "valid": false,
