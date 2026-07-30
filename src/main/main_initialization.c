@@ -25,6 +25,7 @@
 #include "window/window_desktop_integration.h"
 #include "window/window_initialization.h"
 #include "window/window_visual_effects.h"
+#include "ipc/catime_ipc_server.h"
 #include "../../resource/resource.h"
 
 #include <commctrl.h>
@@ -215,6 +216,9 @@ BOOL SetupMainWindow(HINSTANCE hInstance, HWND hwnd, int nCmdShow) {
     if (g_PerformFactoryReset) {
         PostMessageW(hwnd, WM_COMMAND, CLOCK_IDM_RESET_ALL, 0);
         g_PerformFactoryReset = FALSE;
+    }
+    if (!CatimeIpcServer_Start(hwnd)) {
+        LOG_WARNING("Week Planner IPC service did not start");
     }
     return TRUE;
 }

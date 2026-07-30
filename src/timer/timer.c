@@ -12,6 +12,7 @@
 #include "drawing.h"
 #include "menu_preview.h"
 #include "utils/time_parser.h"
+#include "ipc/catime_ipc_server.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -222,6 +223,7 @@ BOOL WriteConfigDefaultStartTime(int seconds) {
 
 /** Fallback to DEFAULT_FALLBACK_TIME if countdown has invalid total time */
 void ResetTimer(void) {
+    CatimeIpcServer_NotifyCancelled();
     int64_t now = GetAbsoluteTimeMs();
 
     if (CLOCK_COUNT_UP) {
@@ -262,5 +264,8 @@ void TogglePauseTimer(void) {
         }
         InitializeHighPrecisionTimer();
         ResetMillisecondAccumulator();
+    }
+    if (CLOCK_IS_PAUSED != was_paused) {
+        CatimeIpcServer_NotifyPauseChanged(CLOCK_IS_PAUSED ? TRUE : FALSE);
     }
 }

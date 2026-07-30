@@ -4,6 +4,7 @@
  */
 
 #include "timer_events_internal.h"
+#include "ipc/catime_ipc_server.h"
 
 BOOL TimerEvents_ShouldRenderMainTimer(void) {
     g_visibleTimerCurrentText[0] = L'\0';
@@ -48,6 +49,7 @@ BOOL Timer_HasPresentedMainWindowFrame(void) {
 }
 
 void TimerEvents_HandleCountdownCompletion(HWND hwnd) {
+    CatimeIpcServer_NotifyTimeout();
     BOOL shouldNotify = CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_OPEN_FILE &&
                         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_LOCK &&
                         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHUTDOWN &&

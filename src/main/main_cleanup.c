@@ -21,8 +21,10 @@
 #include "tray/tray_menu_font.h"
 #include "update_checker.h"
 #include "window/window_visual_effects.h"
+#include "ipc/catime_ipc_server.h"
 
 void CleanupResources(HANDLE mutex) {
+    CatimeIpcServer_Stop();
     CleanupMarkdownInteractive();
     CleanupDrawingRenderCache();
     CleanupDrawingEffects();

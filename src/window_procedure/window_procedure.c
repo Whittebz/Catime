@@ -28,6 +28,7 @@
 #include "plugin/plugin_data.h"
 #include "markdown/markdown_interactive.h"
 #include "drag_scale.h" // Added this line
+#include "ipc/catime_ipc_server.h"
 extern UINT WM_TASKBARCREATED;
 extern BOOL PREVIOUS_TOPMOST_STATE;
 #define OPACITY_FULL 255
@@ -155,6 +156,9 @@ static const MessageDispatchEntry MESSAGE_DISPATCH_TABLE[] = {
 };
 LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    if (msg == WM_APP_CATIME_IPC_COMMAND) {
+        return CatimeIpcServer_HandleUiMessage(hwnd, lp);
+    }
     if (msg == WM_TASKBARCREATED) {
         RecreateTaskbarIcon(hwnd, GetModuleHandle(NULL));
         TaskbarMonitor_OnTaskbarCreated();

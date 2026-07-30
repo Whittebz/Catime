@@ -102,6 +102,26 @@ target_include_directories(ipc_protocol_tests PRIVATE
 )
 add_test(NAME ipc_protocol COMMAND ipc_protocol_tests)
 
+add_executable(ipc_state_tests
+    tests/ipc_state_tests.c
+    src/ipc/ipc_state.c
+    src/ipc/ipc_protocol.c
+)
+target_include_directories(ipc_state_tests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+add_test(NAME ipc_state COMMAND ipc_state_tests)
+
+add_executable(ipc_request_tests
+    tests/ipc_request_tests.c
+    src/ipc/ipc_request.c
+    src/ipc/ipc_protocol.c
+)
+target_include_directories(ipc_request_tests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+add_test(NAME ipc_request COMMAND ipc_request_tests)
+
 add_executable(render_retry_tests
     tests/render_retry_tests.c
     src/utils/render_retry.c
