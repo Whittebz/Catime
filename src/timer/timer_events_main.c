@@ -68,17 +68,21 @@ BOOL TimerEvents_HandleCountdownCompletion(HWND hwnd) {
         ResetPomodoroState();
     }
 
+    if (externalAdvanced) {
+        return TRUE;
+    }
+
     if (TimerEvents_ExecuteSystemAction(hwnd, CLOCK_TIMEOUT_ACTION)) {
-        return externalAdvanced;
+        return FALSE;
     }
 
     TimerEvents_HandleTimeoutActions(hwnd);
-    if (!externalAdvanced && CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHOW_TIME &&
+    if (CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_SHOW_TIME &&
         CLOCK_TIMEOUT_ACTION != TIMEOUT_ACTION_COUNT_UP) {
         TimerEvents_ResetTimerState(0);
         TimerEvents_ResetMillisecondAccumulator();
     }
-    return externalAdvanced;
+    return FALSE;
 }
 
 static BOOL HandleMainTimer(HWND hwnd) {
