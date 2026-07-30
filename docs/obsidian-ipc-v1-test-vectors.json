@@ -1,0 +1,112 @@
+{
+  "schema": "catime-week-planner-ipc-test-vectors",
+  "version": 1,
+  "requests": [
+    {
+      "name": "valid hello",
+      "message": {"type":"hello","protocol":1,"client":"week-planner-calendar","clientVersion":"1.0.1","requestId":"r1"},
+      "valid": true
+    },
+    {
+      "name": "unsupported protocol",
+      "message": {"type":"hello","protocol":2,"client":"week-planner-calendar","clientVersion":"1.0.1","requestId":"r2"},
+      "valid": false,
+      "errorCode": "unsupported_protocol"
+    },
+    {
+      "name": "valid focus start",
+      "message": {"type":"start","requestId":"r3","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","durationSeconds":1500,"phase":"focus"},
+      "valid": true
+    },
+    {
+      "name": "duration below range",
+      "message": {"type":"start","requestId":"r4","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","durationSeconds":0,"phase":"focus"},
+      "valid": false,
+      "errorCode": "invalid_duration"
+    },
+    {
+      "name": "duration above range",
+      "message": {"type":"start","requestId":"r5","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","durationSeconds":10801,"phase":"focus"},
+      "valid": false,
+      "errorCode": "invalid_duration"
+    },
+    {
+      "name": "pause matching session",
+      "message": {"type":"pause","requestId":"r6","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
+      "valid": true
+    },
+    {
+      "name": "resume matching session",
+      "message": {"type":"resume","requestId":"r7","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
+      "valid": true
+    },
+    {
+      "name": "cancel matching session",
+      "message": {"type":"cancel","requestId":"r8","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
+      "valid": true
+    },
+    {
+      "name": "finish matching session",
+      "message": {"type":"finish","requestId":"r9","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
+      "valid": true
+    },
+    {
+      "name": "get recoverable state",
+      "message": {"type":"getState","requestId":"r10"},
+      "valid": true
+    },
+    {
+      "name": "acknowledge terminal event",
+      "message": {"type":"ackEvent","requestId":"r11","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","revision":5},
+      "valid": true
+    },
+    {
+      "name": "ping connection",
+      "message": {"type":"ping","requestId":"r12"},
+      "valid": true
+    },
+    {
+      "name": "unknown command",
+      "message": {"type":"rewind","requestId":"r13","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493"},
+      "valid": false,
+      "errorCode": "unknown_command"
+    }
+  ],
+  "snapshots": [
+    {
+      "name": "paused focus session",
+      "message": {"type":"state","requestId":"r6","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","status":"paused","phase":"focus","plannedSeconds":1500,"focusedSeconds":612,"remainingSeconds":888,"startedAt":1785480000000,"updatedAt":1785480612000,"deadlineAt":null,"revision":4,"cause":"client"}
+    },
+    {
+      "name": "completed focus event",
+      "message": {"type":"completed","sessionId":"018f47d2-8d1b-7d35-9e14-7ccaa208d493","status":"completed","phase":"focus","plannedSeconds":1500,"focusedSeconds":1500,"remainingSeconds":0,"startedAt":1785480000000,"updatedAt":1785481500000,"deadlineAt":null,"endedAt":1785481500000,"revision":5,"cause":"timeout"}
+    }
+  ],
+  "errorCodes": [
+    "invalid_json",
+    "message_too_large",
+    "unsupported_protocol",
+    "invalid_request",
+    "invalid_duration",
+    "invalid_session_id",
+    "unknown_command",
+    "session_conflict",
+    "session_mismatch",
+    "invalid_state",
+    "internal_error"
+  ],
+  "transitions": [
+    {"from":"idle","to":"running","valid":true},
+    {"from":"running","to":"paused","valid":true},
+    {"from":"paused","to":"running","valid":true},
+    {"from":"running","to":"completed","valid":true},
+    {"from":"paused","to":"completed","valid":true},
+    {"from":"running","to":"cancelled","valid":true},
+    {"from":"paused","to":"cancelled","valid":true},
+    {"from":"completed","to":"idle","valid":true},
+    {"from":"cancelled","to":"idle","valid":true},
+    {"from":"idle","to":"paused","valid":false},
+    {"from":"completed","to":"running","valid":false},
+    {"from":"running","to":"running","valid":false}
+  ]
+}

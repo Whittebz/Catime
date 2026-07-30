@@ -92,6 +92,16 @@ target_include_directories(timer_render_cache_tests PRIVATE
 target_link_libraries(timer_render_cache_tests PRIVATE user32)
 add_test(NAME timer_render_cache COMMAND timer_render_cache_tests)
 
+# Week Planner Calendar fork: platform-independent IPC contract coverage.
+add_executable(ipc_protocol_tests
+    tests/ipc_protocol_tests.c
+    src/ipc/ipc_protocol.c
+)
+target_include_directories(ipc_protocol_tests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+add_test(NAME ipc_protocol COMMAND ipc_protocol_tests)
+
 add_executable(render_retry_tests
     tests/render_retry_tests.c
     src/utils/render_retry.c
@@ -214,6 +224,7 @@ set(_catime_test_targets
     tray_icon_lifetime_tests
     tray_hover_cache_tests
     timer_render_cache_tests
+    ipc_protocol_tests
     render_retry_tests
     system_monitor_snapshot_tests
     tray_metric_sync_tests
