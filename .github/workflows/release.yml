@@ -72,16 +72,23 @@ jobs:
         if ($header -notmatch '#define\s+CATIME_VERSION\s+"([^"]+)"') {
           throw "Unable to extract CATIME_VERSION"
         }
-        $version = $Matches[1]
-        $tagVersion = $env:GITHUB_REF -replace '^refs/tags/v', ''
-        if ($tagVersion -ne $version) {
-          throw "Tag version ($tagVersion) does not match resource version ($version)"
+        $baseVersion = $Matches[1]
+        $releaseVersion = $baseVersion
+        if ($env:GITHUB_REPOSITORY -eq "Whittebz/Catime") {
+          if ($header -notmatch '#define\s+CATIME_DISTRIBUTION_VERSION\s+CATIME_VERSION\s+"([^"]+)"') {
+            throw "Unable to extract the fork distribution version"
+          }
+          $releaseVersion = "$baseVersion$($Matches[1])"
         }
-        "VERSION=$version" >> $env:GITHUB_ENV
-        "version=$version" >> $env:GITHUB_OUTPUT
+        $tagVersion = $env:GITHUB_REF -replace '^refs/tags/v', ''
+        if ($tagVersion -ne $releaseVersion) {
+          throw "Tag version ($tagVersion) does not match release version ($releaseVersion)"
+        }
+        "VERSION=$releaseVersion" >> $env:GITHUB_ENV
+        "version=$releaseVersion" >> $env:GITHUB_OUTPUT
         "TAG_VERSION=$tagVersion" >> $env:GITHUB_ENV
         "tag_version=$tagVersion" >> $env:GITHUB_OUTPUT
-        Write-Host "Version: $version"
+        Write-Host "Version: $releaseVersion"
       
     - name: Build application
       shell: pwsh
@@ -231,3 +238,56 @@ jobs:
       version: ${{ needs.build.outputs.tag_version }}
     secrets:
       CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+
+  fork-release:
+    name: release / week-planner-fork
+    if: >-
+      github.repository == 'Whittebz/Catime' &&
+      startsWith(github.ref_name, 'v') &&
+      contains(github.ref_name, '-wpc.')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download unsigned executable
+      uses: actions/download-artifact@v8
+      with:
+        artifact-ids: ${{ needs.build.outputs.artifact-id }}
+        path: ./release-input
+
+    - name: Prepare release assets
+      shell: bash
+      run: |
+        set -euo pipefail
+        mapfile -t executables < <(find ./release-input -type f -iname '*.exe')
+        if [[ ${#executables[@]} -ne 1 ]]; then
+          echo "::error::Expected exactly one Catime executable, found ${#executables[@]}"
+          exit 1
+        fi
+        mkdir -p ./release-assets
+        target="./release-assets/catime_${{ needs.build.outputs.tag_version }}.exe"
+        mv "${executables[0]}" "$target"
+        (cd ./release-assets && sha256sum "$(basename "$target")" > "$(basename "$target").sha256")
+
+    - name: Create fork prerelease
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        printf '%s\n' \
+          '## Week Planner Calendar integration build' \
+          '' \
+          'This portable, unsigned Catime fork adds the local IPC protocol required by Week Planner Calendar 1.1.0.' \
+          '' \
+          '- Windows may show a SmartScreen warning because this fork build is not code-signed.' \
+          '- The integration is local-only and does not receive vault paths, task titles, or note content.' \
+          '- Install by placing the EXE in a stable local folder and selecting its absolute path in the Obsidian plugin settings.' \
+          '- Windows real-machine fault-matrix validation remains pending.' \
+          > ./release-notes.md
+        gh release create "${GITHUB_REF_NAME}" \
+          --repo "${GITHUB_REPOSITORY}" \
+          --verify-tag \
+          --prerelease \
+          --title "Catime ${{ needs.build.outputs.tag_version }}" \
+          --notes-file ./release-notes.md \
+          ./release-assets/*

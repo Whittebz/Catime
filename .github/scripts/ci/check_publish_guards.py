@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require upstream-repository guards on every publishing-capable Actions job."""
+"""Require approved repository guards on every publishing-capable Actions job."""
 
 from __future__ import annotations
 
@@ -9,20 +9,23 @@ from pathlib import Path
 
 
 UPSTREAM_GUARD = "github.repository == 'vladelaina/Catime'"
+FORK_RELEASE_GUARD = "github.repository == 'Whittebz/Catime'"
 WORKFLOW_DIRECTORY = Path(__file__).resolve().parents[2] / "workflows"
 
-# Secret access catches current and future publishing integrations by default.
-# The explicit markers also cover publishers that only use GITHUB_TOKEN or
-# create Store artifacts without a third-party secret in the same job.
-SENSITIVE_MARKERS = (
+# Third-party credentials and package publishing remain upstream-only. GitHub
+# releases may also target the named integration fork when explicitly guarded.
+UPSTREAM_ONLY_MARKERS = (
     "${{ secrets.",
     "signpath/github-action-submit-signing-request",
-    "softprops/action-gh-release",
     "winget-releaser",
     "choco push",
     "build-store-package.ps1",
     "./.github/workflows/signpath-sign.yml",
     "./.github/workflows/chocolatey.yml",
+)
+RELEASE_MARKERS = (
+    "softprops/action-gh-release",
+    "gh release create",
 )
 
 
@@ -61,16 +64,25 @@ def main() -> int:
     for path in workflow_paths:
         text = path.read_text(encoding="utf-8")
         for job_name, job_text in extract_jobs(text):
-            matched = [marker for marker in SENSITIVE_MARKERS if marker in job_text]
-            if not matched:
+            upstream_only = [marker for marker in UPSTREAM_ONLY_MARKERS if marker in job_text]
+            release = [marker for marker in RELEASE_MARKERS if marker in job_text]
+            if not upstream_only and not release:
                 continue
 
             checked_jobs += 1
-            if UPSTREAM_GUARD not in job_text:
-                marker_list = ", ".join(matched)
+            if upstream_only and UPSTREAM_GUARD not in job_text:
+                marker_list = ", ".join(upstream_only)
                 failures.append(
                     f"{path.relative_to(WORKFLOW_DIRECTORY.parent.parent)}: "
                     f"job '{job_name}' lacks upstream guard; matched {marker_list}"
+                )
+            elif release and not any(
+                guard in job_text for guard in (UPSTREAM_GUARD, FORK_RELEASE_GUARD)
+            ):
+                marker_list = ", ".join(release)
+                failures.append(
+                    f"{path.relative_to(WORKFLOW_DIRECTORY.parent.parent)}: "
+                    f"job '{job_name}' lacks an approved release guard; matched {marker_list}"
                 )
 
     if failures:
@@ -78,7 +90,7 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         print(
-            f"Required job condition: {UPSTREAM_GUARD}",
+            f"Approved guards: {UPSTREAM_GUARD} or {FORK_RELEASE_GUARD}",
             file=sys.stderr,
         )
         return 1
