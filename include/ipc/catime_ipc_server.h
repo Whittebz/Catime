@@ -6,6 +6,7 @@
 #ifndef CATIME_IPC_SERVER_H
 #define CATIME_IPC_SERVER_H
 
+#include <stdint.h>
 #include <windows.h>
 
 #define WM_APP_CATIME_IPC_COMMAND (WM_APP + 320)

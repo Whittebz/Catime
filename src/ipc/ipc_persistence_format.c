@@ -92,11 +92,9 @@ BOOL IpcPersistence_WriteSnapshot(const wchar_t* path,
     PrefixKey(key, _countof(key), prefix, L"sessionId");
     WriteString(path, section, key, snapshot->sessionId);
     PrefixKey(key, _countof(key), prefix, L"status");
-    WritePrivateProfileStringW(section, key,
-        CatimeIpc_StatusName(snapshot->status), path);
+    WriteString(path, section, key, CatimeIpc_StatusName(snapshot->status));
     PrefixKey(key, _countof(key), prefix, L"phase");
-    WritePrivateProfileStringW(section, key,
-        CatimeIpc_PhaseName(snapshot->phase), path);
+    WriteString(path, section, key, CatimeIpc_PhaseName(snapshot->phase));
     PrefixKey(key, _countof(key), prefix, L"plannedSeconds");
     WriteNumber(path, section, key, snapshot->plannedSeconds);
     PrefixKey(key, _countof(key), prefix, L"focusedSeconds");
@@ -114,8 +112,7 @@ BOOL IpcPersistence_WriteSnapshot(const wchar_t* path,
     PrefixKey(key, _countof(key), prefix, L"revision");
     WriteNumber(path, section, key, (long long)snapshot->revision);
     PrefixKey(key, _countof(key), prefix, L"cause");
-    WritePrivateProfileStringW(section, key,
-        CatimeIpc_CauseName(snapshot->cause), path);
+    WriteString(path, section, key, CatimeIpc_CauseName(snapshot->cause));
     return TRUE;
 }
 
