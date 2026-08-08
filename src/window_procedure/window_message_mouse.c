@@ -13,6 +13,9 @@
 #include "window_procedure/window_events.h"
 #include "window_procedure/window_procedure.h"
 #include "window_procedure/window_utils.h"
+#include "tray/tray_events.h"
+#include "tray/tray_menu.h"
+#include "timer/timer.h"
 
 #include <windowsx.h>
 
@@ -220,11 +223,15 @@ LRESULT HandleRButtonDown(HWND hwnd, WPARAM wp, LPARAM lp) {
 }
 
 LRESULT HandleContextMenu(HWND hwnd, WPARAM wp, LPARAM lp) {
+    (void)wp; (void)lp;
     BOOL suppressed = CLOCK_EDIT_MODE || IsContextMenuSuppressed();
     if (suppressed) {
         return 0;
     }
-    return DefWindowProc(hwnd, WM_CONTEXTMENU, wp, lp);
+    /* The floating timer's right-click opens the timer control menu, which
+     * offers the focus countdown list while idle and pause/end while running. */
+    ShowContextMenu(hwnd);
+    return 0;
 }
 
 LRESULT HandleCaptureChanged(HWND hwnd, WPARAM wp, LPARAM lp) {
@@ -249,6 +256,12 @@ LRESULT HandleCancelMode(HWND hwnd, WPARAM wp, LPARAM lp) {
 LRESULT HandleLButtonDblClk(HWND hwnd, WPARAM wp, LPARAM lp) {
     (void)wp; (void)lp;
     if (!CLOCK_EDIT_MODE) {
+        if (!CLOCK_SHOW_CURRENT_TIME &&
+            (CLOCK_COUNT_UP || CLOCK_TOTAL_TIME > 0)) {
+            /* During a countdown, double-click pauses or resumes it. */
+            TogglePauseResumeTimer(hwnd);
+            return 0;
+        }
         StartEditMode(hwnd);
         return 0;
     }

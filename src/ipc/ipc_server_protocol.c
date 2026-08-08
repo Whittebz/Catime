@@ -155,7 +155,8 @@ static BOOL SerializeReply(const CatimeIpcRequest* request,
             "{\"type\":\"helloAck\",\"protocol\":1,\"catimeVersion\":\"%s\","
             "\"distributionVersion\":\"%s\",\"buildCommit\":\"unknown\","
             "\"capabilities\":[\"countdown\",\"pause\",\"resume\",\"cancel\","
-            "\"completeEvents\",\"stateRecovery\",\"breakPhases\",\"phaseQueue\"],"
+            "\"completeEvents\",\"stateRecovery\",\"breakPhases\",\"phaseQueue\","
+            "\"multiClient\",\"clickStart\",\"offlineHistory\"],"
             "\"requestId\":\"%s\"}\n",
             CATIME_VERSION, CATIME_DISTRIBUTION_VERSION, escaped);
         return length > 0 && (size_t)length < capacity;
@@ -194,7 +195,7 @@ static void StoreCached(ResponseCache* cache, const char* requestId,
 
 void IpcProtocol_HandleFrame(HANDLE pipe, const char* frame,
                              size_t length, BOOL* handshaken,
-                             void* responseCache) {
+                             void* responseCache, int clientId) {
     ResponseCache* cache = (ResponseCache*)responseCache;
     CatimeIpcRequest request;
     ZeroMemory(&request, sizeof(request));
@@ -214,7 +215,7 @@ void IpcProtocol_HandleFrame(HANDLE pipe, const char* frame,
     }
     IpcReply reply;
     ZeroMemory(&reply, sizeof(reply));
-    if (!IpcSession_Execute(&request, handshaken, &reply) ||
+    if (!IpcSession_Execute(&request, handshaken, &reply, clientId) ||
         !SerializeReply(&request, &reply, response, sizeof(response))) {
         SerializeError(request.requestId, CATIME_IPC_ERROR_INTERNAL_ERROR,
                        response, sizeof(response));

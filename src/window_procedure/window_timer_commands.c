@@ -16,6 +16,7 @@
 #include "pomodoro.h"
 #include "notification.h"
 #include "drawing.h"
+#include "ipc/catime_ipc_server.h"
 #include "../resource/resource.h"
 #include "log.h"
 #include <string.h>
@@ -146,6 +147,7 @@ BOOL StartCountdownWithTime(HWND hwnd, int seconds) {
     BOOL result = SwitchTimerMode(hwnd, TIMER_MODE_COUNTDOWN, &params);
     MainTimer_Stop();
     ResetTimerWithInterval(hwnd);
+    CatimeIpcServer_NotifyStarted((uint32_t)seconds);
     return result;
 }
 void ToggleMilliseconds(HWND hwnd) {

@@ -9,6 +9,7 @@
 #include "window_procedure/window_events.h"
 #include "window_procedure/window_utils.h"
 #include "tray/tray_events.h"
+#include "ipc/catime_ipc_server.h"
 #include "dialog/dialog_procedure.h"
 #include "dialog/dialog_common.h"
 #include "timer/timer.h"
@@ -101,6 +102,14 @@ LRESULT CmdPauseResume(HWND hwnd, WPARAM wp, LPARAM lp) {
 LRESULT CmdRestartTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
     (void)wp; (void)lp;
     RestartCurrentTimer(hwnd);
+    return 0;
+}
+
+LRESULT CmdFinishTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
+    (void)wp; (void)lp;
+    if (CatimeIpcServer_NotifyFinished()) {
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
     return 0;
 }
 

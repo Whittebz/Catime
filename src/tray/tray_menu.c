@@ -157,6 +157,10 @@ void ShowContextMenu(HWND hwnd) {
                CLOCK_IDM_TIMER_RESTART, 
                GetLocalizedString(NULL, L"Start Over"));
     
+    AppendMenuW(hTimerManageMenu, MF_STRING | (timerRunning ? MF_ENABLED : MF_GRAYED),
+               CLOCK_IDM_TIMER_FINISH,
+               GetLocalizedString(NULL, L"End Focus"));
+    
     const wchar_t* visibilityText = IsWindowVisible(hwnd) ?
         GetLocalizedString(NULL, L"Hide Window") :
         GetLocalizedString(NULL, L"Show Window");

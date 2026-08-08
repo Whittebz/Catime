@@ -207,6 +207,7 @@
 #define CLOCK_IDM_TIMER_MANAGEMENT 159       /**< Timer management submenu */
 #define CLOCK_IDM_TIMER_PAUSE_RESUME 158     /**< Pause/resume timer menu item */
 #define CLOCK_IDM_TIMER_RESTART 178          /**< Restart timer menu item */
+#define CLOCK_IDM_TIMER_FINISH 179           /**< End the focus session (Week Planner) */
 #define CLOCK_IDM_SLEEP 125                  /**< Sleep timeout action */
 
 #endif /* CATIME_RESOURCE_APP_IDS_H */

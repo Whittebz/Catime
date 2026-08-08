@@ -17,6 +17,7 @@ static const CommandDispatchEntry COMMAND_DISPATCH_TABLE[] = {
     {CLOCK_IDM_RESET_ALL, CmdResetDefaults},
     {CLOCK_IDM_TIMER_PAUSE_RESUME, CmdPauseResume},
     {CLOCK_IDM_TIMER_RESTART, CmdRestartTimer},
+    {CLOCK_IDM_TIMER_FINISH, CmdFinishTimer},
     {CLOCK_IDM_COUNTDOWN_RESET, CmdCountdownReset},
     {CLOCK_IDM_SHOW_CURRENT_TIME, CmdShowCurrentTime},
     {CLOCK_IDM_24HOUR_FORMAT, Cmd24HourFormat},

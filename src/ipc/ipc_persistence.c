@@ -1,9 +1,14 @@
 /**
  * @file ipc_persistence.c
  * @brief Integration-state INI persistence under the current user's app data.
+ *
+ * Added by the Week Planner Calendar fork. Besides the latest session state it
+ * also stores a bounded history of terminal sessions that no client has
+ * acknowledged yet, so a plugin that connects later can backfill everything.
  */
 
 #include "ipc/catime_ipc_persistence.h"
+#include "ipc/catime_ipc_history.h"
 
 #include <shlobj.h>
 #include <stdio.h>
@@ -33,30 +38,17 @@ static BOOL ToWide(const char* input, wchar_t* output, size_t capacity) {
                             output, (int)capacity) > 0;
 }
 
-static void WriteNumber(const wchar_t* path, const wchar_t* key,
-                        long long value) {
+static void WriteNumber(const wchar_t* path, const wchar_t* section,
+                        const wchar_t* key, long long value) {
     wchar_t buffer[48];
     _snwprintf_s(buffer, _countof(buffer), _TRUNCATE, L"%lld", value);
-    WritePrivateProfileStringW(L"Integration", key, buffer, path);
+    WritePrivateProfileStringW(section, key, buffer, path);
 }
 
-static void WritePlanNumber(const wchar_t* path, const wchar_t* key,
-                            long long value) {
+static int64_t ReadNumber(const wchar_t* path, const wchar_t* section,
+                          const wchar_t* key) {
     wchar_t buffer[48];
-    _snwprintf_s(buffer, _countof(buffer), _TRUNCATE, L"%lld", value);
-    WritePrivateProfileStringW(L"Plan", key, buffer, path);
-}
-
-static int64_t ReadNumber(const wchar_t* path, const wchar_t* key) {
-    wchar_t buffer[48];
-    GetPrivateProfileStringW(L"Integration", key, L"0", buffer,
-                             _countof(buffer), path);
-    return _wtoi64(buffer);
-}
-
-static int64_t ReadPlanNumber(const wchar_t* path, const wchar_t* key) {
-    wchar_t buffer[48];
-    GetPrivateProfileStringW(L"Plan", key, L"0", buffer,
+    GetPrivateProfileStringW(section, key, L"0", buffer,
                              _countof(buffer), path);
     return _wtoi64(buffer);
 }
@@ -75,63 +67,179 @@ static CatimeIpcPhase ParsePhase(const wchar_t* value) {
     return CATIME_IPC_PHASE_FOCUS;
 }
 
+static CatimeIpcCause ParseCause(const wchar_t* value) {
+    if (wcscmp(value, L"tray") == 0) return CATIME_IPC_CAUSE_TRAY;
+    if (wcscmp(value, L"hotkey") == 0) return CATIME_IPC_CAUSE_HOTKEY;
+    if (wcscmp(value, L"timeout") == 0) return CATIME_IPC_CAUSE_TIMEOUT;
+    if (wcscmp(value, L"user_replaced") == 0)
+        return CATIME_IPC_CAUSE_USER_REPLACED;
+    if (wcscmp(value, L"shutdown") == 0) return CATIME_IPC_CAUSE_SHUTDOWN;
+    return CATIME_IPC_CAUSE_CLIENT;
+}
+
+static void WriteString(const wchar_t* path, const wchar_t* section,
+                        const wchar_t* key, const char* value) {
+    wchar_t wide[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+    if (!ToWide(value, wide, _countof(wide))) return;
+    WritePrivateProfileStringW(section, key, wide, path);
+}
+
+static BOOL ReadString(const wchar_t* path, const wchar_t* section,
+                       const wchar_t* key, char* output, size_t capacity) {
+    wchar_t wide[CATIME_IPC_MAX_SESSION_ID_BYTES + 1] = L"";
+    GetPrivateProfileStringW(section, key, L"", wide,
+                             _countof(wide), path);
+    return wide[0] &&
+        WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1,
+                            output, (int)capacity, NULL, NULL) > 0;
+}
+
+static const wchar_t* PrefixKey(wchar_t* buffer, size_t capacity,
+                                const wchar_t* prefix,
+                                const wchar_t* suffix) {
+    _snwprintf_s(buffer, capacity, _TRUNCATE, L"%s%s", prefix, suffix);
+    return buffer;
+}
+
+static void WriteSnapshot(const wchar_t* path, const wchar_t* section,
+                          const wchar_t* prefix,
+                          const CatimeIpcSnapshot* snapshot) {
+    wchar_t key[64];
+    PrefixKey(key, _countof(key), prefix, L"sessionId");
+    WriteString(path, section, key, snapshot->sessionId);
+    PrefixKey(key, _countof(key), prefix, L"status");
+    WritePrivateProfileStringW(section, key,
+        CatimeIpc_StatusName(snapshot->status), path);
+    PrefixKey(key, _countof(key), prefix, L"phase");
+    WritePrivateProfileStringW(section, key,
+        CatimeIpc_PhaseName(snapshot->phase), path);
+    PrefixKey(key, _countof(key), prefix, L"plannedSeconds");
+    WriteNumber(path, section, key, snapshot->plannedSeconds);
+    PrefixKey(key, _countof(key), prefix, L"focusedSeconds");
+    WriteNumber(path, section, key, snapshot->focusedSeconds);
+    PrefixKey(key, _countof(key), prefix, L"remainingSeconds");
+    WriteNumber(path, section, key, snapshot->remainingSeconds);
+    PrefixKey(key, _countof(key), prefix, L"startedAt");
+    WriteNumber(path, section, key, snapshot->startedAt);
+    PrefixKey(key, _countof(key), prefix, L"updatedAt");
+    WriteNumber(path, section, key, snapshot->updatedAt);
+    PrefixKey(key, _countof(key), prefix, L"deadlineAt");
+    WriteNumber(path, section, key, snapshot->deadlineAt);
+    PrefixKey(key, _countof(key), prefix, L"endedAt");
+    WriteNumber(path, section, key, snapshot->endedAt);
+    PrefixKey(key, _countof(key), prefix, L"revision");
+    WriteNumber(path, section, key, (long long)snapshot->revision);
+    PrefixKey(key, _countof(key), prefix, L"cause");
+    WritePrivateProfileStringW(section, key,
+        CatimeIpc_CauseName(snapshot->cause), path);
+}
+
+static BOOL ReadSnapshot(const wchar_t* path, const wchar_t* section,
+                         const wchar_t* prefix, CatimeIpcSnapshot* snapshot) {
+    char sessionId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+    wchar_t key[64];
+    wchar_t statusText[24];
+    wchar_t phaseText[24];
+    wchar_t causeText[24];
+    wchar_t key[64];
+    PrefixKey(key, _countof(key), prefix, L"sessionId");
+    if (!ReadString(path, section, key, sessionId, sizeof(sessionId))) {
+        return FALSE;
+    }
+    PrefixKey(key, _countof(key), prefix, L"status");
+    GetPrivateProfileStringW(section, key, L"idle", statusText,
+                             _countof(statusText), path);
+    CatimeIpcStatus status = ParseStatus(statusText);
+    if (status == CATIME_IPC_STATUS_IDLE) return FALSE;
+    PrefixKey(key, _countof(key), prefix, L"phase");
+    GetPrivateProfileStringW(section, key, L"focus", phaseText,
+                             _countof(phaseText), path);
+    PrefixKey(key, _countof(key), prefix, L"cause");
+    GetPrivateProfileStringW(section, key, L"client", causeText,
+                             _countof(causeText), path);
+    PrefixKey(key, _countof(key), prefix, L"plannedSeconds");
+    int64_t planned = ReadNumber(path, section, key);
+    if (planned < 1 || planned > CATIME_IPC_MAX_DURATION_SECONDS) return FALSE;
+    PrefixKey(key, _countof(key), prefix, L"focusedSeconds");
+    int64_t focused = ReadNumber(path, section, key);
+    PrefixKey(key, _countof(key), prefix, L"remainingSeconds");
+    int64_t remaining = ReadNumber(path, section, key);
+    PrefixKey(key, _countof(key), prefix, L"revision");
+    int64_t revision = ReadNumber(path, section, key);
+    if (focused < 0 || focused > planned ||
+        remaining < 0 || remaining > planned || revision < 1) return FALSE;
+    memset(snapshot, 0, sizeof(*snapshot));
+    strncpy_s(snapshot->sessionId, sizeof(snapshot->sessionId),
+              sessionId, _TRUNCATE);
+    snapshot->status = status;
+    snapshot->phase = ParsePhase(phaseText);
+    snapshot->plannedSeconds = (uint32_t)planned;
+    snapshot->focusedSeconds = (uint32_t)focused;
+    snapshot->remainingSeconds = (uint32_t)remaining;
+    PrefixKey(key, _countof(key), prefix, L"startedAt");
+    snapshot->startedAt = ReadNumber(path, section, key);
+    PrefixKey(key, _countof(key), prefix, L"updatedAt");
+    snapshot->updatedAt = ReadNumber(path, section, key);
+    PrefixKey(key, _countof(key), prefix, L"deadlineAt");
+    snapshot->deadlineAt = ReadNumber(path, section, key);
+    PrefixKey(key, _countof(key), prefix, L"endedAt");
+    snapshot->endedAt = ReadNumber(path, section, key);
+    snapshot->revision = (uint64_t)revision;
+    snapshot->cause = ParseCause(causeText);
+    return TRUE;
+}
+
 BOOL CatimeIpcPersistence_Load(CatimeIpcState* state,
                                int64_t nowMs,
-                               CatimeIpcSnapshot* completedEvent) {
-    if (!state) return FALSE;
+                               IpcHistory* history) {
+    if (!state || !history) return FALSE;
     wchar_t path[MAX_PATH];
     if (!StatePath(path, _countof(path))) return FALSE;
+    IpcHistory_Init(history);
+
+    int64_t historyCount = ReadNumber(path, L"History", L"count");
+    if (historyCount < 0 || historyCount > CATIME_IPC_MAX_HISTORY) {
+        historyCount = 0;
+    }
+    for (int64_t index = 0; index < historyCount; index++) {
+        wchar_t prefix[16];
+        CatimeIpcSnapshot snapshot;
+        _snwprintf_s(prefix, _countof(prefix), _TRUNCATE, L"%lld_", index);
+        if (ReadSnapshot(path, L"History", prefix, &snapshot) &&
+            CatimeIpc_IsTerminalStatus(snapshot.status)) {
+            IpcHistory_Add(history, &snapshot);
+        }
+    }
+
     wchar_t sessionId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1] = L"";
     GetPrivateProfileStringW(L"Integration", L"sessionId", L"",
                              sessionId, _countof(sessionId), path);
-    if (!sessionId[0]) return FALSE;
+    BOOL hasState = sessionId[0] != 0;
+    CatimeIpcState_Init(state);
+    if (!hasState) return IpcHistory_Count(history) > 0;
+
     char sessionUtf8[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
     if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, sessionId, -1,
-            sessionUtf8, sizeof(sessionUtf8), NULL, NULL) <= 0) return FALSE;
-    wchar_t statusValue[24];
-    wchar_t phaseValue[24];
-    GetPrivateProfileStringW(L"Integration", L"status", L"idle",
-                             statusValue, _countof(statusValue), path);
-    GetPrivateProfileStringW(L"Integration", L"phase", L"focus",
-                             phaseValue, _countof(phaseValue), path);
-    CatimeIpcStatus status = ParseStatus(statusValue);
-    int64_t plannedValue = ReadNumber(path, L"plannedSeconds");
-    if (status == CATIME_IPC_STATUS_IDLE || plannedValue < 1 ||
-        plannedValue > CATIME_IPC_MAX_DURATION_SECONDS) return FALSE;
-
-    CatimeIpcState_Init(state);
+            sessionUtf8, sizeof(sessionUtf8), NULL, NULL) <= 0) {
+        return IpcHistory_Count(history) > 0;
+    }
+    CatimeIpcSnapshot snapshot;
+    if (!ReadSnapshot(path, L"Integration", L"", &snapshot)) {
+        return IpcHistory_Count(history) > 0;
+    }
     state->hasSession = true;
     strncpy_s(state->snapshot.sessionId, sizeof(state->snapshot.sessionId),
               sessionUtf8, _TRUNCATE);
-    state->snapshot.status = status;
-    state->snapshot.phase = ParsePhase(phaseValue);
-    state->snapshot.plannedSeconds = (uint32_t)plannedValue;
-    int64_t focusedValue = ReadNumber(path, L"focusedSeconds");
-    int64_t remainingValue = ReadNumber(path, L"remainingSeconds");
-    int64_t revisionValue = ReadNumber(path, L"revision");
-    int64_t acknowledgedValue = ReadNumber(path, L"acknowledgedRevision");
-    if (focusedValue < 0 || focusedValue > plannedValue ||
-        remainingValue < 0 || remainingValue > plannedValue ||
-        revisionValue < 1 || acknowledgedValue < 0) {
-        CatimeIpcState_Init(state);
-        return FALSE;
-    }
-    state->snapshot.focusedSeconds = (uint32_t)focusedValue;
-    state->snapshot.remainingSeconds = (uint32_t)remainingValue;
-    state->snapshot.startedAt = ReadNumber(path, L"startedAt");
-    state->snapshot.updatedAt = ReadNumber(path, L"updatedAt");
-    state->snapshot.deadlineAt = ReadNumber(path, L"deadlineAt");
-    state->snapshot.endedAt = ReadNumber(path, L"endedAt");
-    state->snapshot.revision = (uint64_t)revisionValue;
-    state->acknowledgedRevision = (uint64_t)acknowledgedValue;
-    state->snapshot.cause = CATIME_IPC_CAUSE_SHUTDOWN;
+    state->snapshot = snapshot;
+    state->acknowledgedRevision = ReadNumber(path, L"Integration",
+                                             L"acknowledgedRevision");
     state->focusedAtResume = state->snapshot.focusedSeconds;
-    int64_t queueCount = ReadNumber(path, L"queuedPhaseCount");
-    int64_t queueNext = ReadNumber(path, L"nextQueuedPhase");
+    int64_t queueCount = ReadNumber(path, L"Plan", L"queuedPhaseCount");
+    int64_t queueNext = ReadNumber(path, L"Plan", L"nextQueuedPhase");
     if (queueCount < 0 || queueCount > CATIME_IPC_MAX_QUEUED_PHASES ||
         queueNext < 0 || queueNext > queueCount) {
-        CatimeIpcState_Init(state);
-        return FALSE;
+        queueCount = 0;
+        queueNext = 0;
     }
     for (int64_t index = 0; index < queueCount; index++) {
         wchar_t key[48];
@@ -142,7 +250,7 @@ BOOL CatimeIpcPersistence_Load(CatimeIpcState* state,
                                  _countof(queuedId), path);
         _snwprintf_s(key, _countof(key), _TRUNCATE,
                      L"phase%lldDuration", index);
-        int64_t duration = ReadPlanNumber(path, key);
+        int64_t duration = ReadNumber(path, L"Plan", key);
         _snwprintf_s(key, _countof(key), _TRUNCATE,
                      L"phase%lldType", index);
         wchar_t queuedPhase[24];
@@ -153,65 +261,65 @@ BOOL CatimeIpcPersistence_Load(CatimeIpcState* state,
             duration > CATIME_IPC_MAX_DURATION_SECONDS ||
             WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, queuedId, -1,
                 step->sessionId, sizeof(step->sessionId), NULL, NULL) <= 0) {
-            CatimeIpcState_Init(state);
-            return FALSE;
+            continue;
         }
         step->durationSeconds = (uint32_t)duration;
         step->phase = ParsePhase(queuedPhase);
     }
     state->queuedPhaseCount = (uint32_t)queueCount;
     state->nextQueuedPhase = (uint32_t)queueNext;
-    if (completedEvent && CatimeIpcState_Tick(state, nowMs, completedEvent)) {
-        CatimeIpcPersistence_Save(state);
+    CatimeIpcSnapshot completed;
+    if (CatimeIpcState_Tick(state, nowMs, &completed)) {
+        IpcHistory_Add(history, &completed);
+        CatimeIpcPersistence_Save(state, history);
     }
     return TRUE;
 }
 
-BOOL CatimeIpcPersistence_Save(const CatimeIpcState* state) {
+BOOL CatimeIpcPersistence_Save(const CatimeIpcState* state,
+                               const IpcHistory* history) {
     if (!state) return FALSE;
     wchar_t path[MAX_PATH];
     if (!StatePath(path, _countof(path))) return FALSE;
-    if (!state->hasSession) return DeleteFileW(path);
-    wchar_t sessionId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
-    wchar_t status[24];
-    wchar_t phase[24];
-    if (!ToWide(state->snapshot.sessionId, sessionId, _countof(sessionId)) ||
-        !ToWide(CatimeIpc_StatusName(state->snapshot.status), status,
-                _countof(status)) ||
-        !ToWide(CatimeIpc_PhaseName(state->snapshot.phase), phase,
-                _countof(phase))) return FALSE;
-    WritePrivateProfileStringW(L"Integration", L"sessionId", sessionId, path);
-    WritePrivateProfileStringW(L"Integration", L"status", status, path);
-    WritePrivateProfileStringW(L"Integration", L"phase", phase, path);
-    WriteNumber(path, L"plannedSeconds", state->snapshot.plannedSeconds);
-    WriteNumber(path, L"focusedSeconds", state->snapshot.focusedSeconds);
-    WriteNumber(path, L"remainingSeconds", state->snapshot.remainingSeconds);
-    WriteNumber(path, L"startedAt", state->snapshot.startedAt);
-    WriteNumber(path, L"updatedAt", state->snapshot.updatedAt);
-    WriteNumber(path, L"deadlineAt", state->snapshot.deadlineAt);
-    WriteNumber(path, L"endedAt", state->snapshot.endedAt);
-    WriteNumber(path, L"revision", (long long)state->snapshot.revision);
-    WriteNumber(path, L"acknowledgedRevision",
-                (long long)state->acknowledgedRevision);
-    WriteNumber(path, L"queuedPhaseCount", state->queuedPhaseCount);
-    WriteNumber(path, L"nextQueuedPhase", state->nextQueuedPhase);
-    for (uint32_t index = 0; index < state->queuedPhaseCount; index++) {
-        const CatimeIpcPlanStep* step = &state->queuedPhases[index];
-        wchar_t key[48];
-        wchar_t queuedId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
-        wchar_t queuedPhase[24];
-        if (!ToWide(step->sessionId, queuedId, _countof(queuedId)) ||
-            !ToWide(CatimeIpc_PhaseName(step->phase), queuedPhase,
-                    _countof(queuedPhase))) return FALSE;
-        _snwprintf_s(key, _countof(key), _TRUNCATE,
-                     L"phase%luSessionId", (unsigned long)index);
-        WritePrivateProfileStringW(L"Plan", key, queuedId, path);
-        _snwprintf_s(key, _countof(key), _TRUNCATE,
-                     L"phase%luDuration", (unsigned long)index);
-        WritePlanNumber(path, key, step->durationSeconds);
-        _snwprintf_s(key, _countof(key), _TRUNCATE,
-                     L"phase%luType", (unsigned long)index);
-        WritePrivateProfileStringW(L"Plan", key, queuedPhase, path);
+    if (!state->hasSession && IpcHistory_Count(history) == 0) {
+        return DeleteFileW(path);
+    }
+    if (state->hasSession) {
+        WriteSnapshot(path, L"Integration", L"", &state->snapshot);
+        WriteNumber(path, L"Integration", L"acknowledgedRevision",
+                    (long long)state->acknowledgedRevision);
+        WriteNumber(path, L"Plan", L"queuedPhaseCount",
+                    state->queuedPhaseCount);
+        WriteNumber(path, L"Plan", L"nextQueuedPhase",
+                    state->nextQueuedPhase);
+        for (uint32_t index = 0; index < state->queuedPhaseCount; index++) {
+            const CatimeIpcPlanStep* step = &state->queuedPhases[index];
+            wchar_t key[48];
+            wchar_t queuedId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+            wchar_t queuedPhase[24];
+            if (!ToWide(step->sessionId, queuedId, _countof(queuedId)) ||
+                !ToWide(CatimeIpc_PhaseName(step->phase), queuedPhase,
+                        _countof(queuedPhase))) return FALSE;
+            _snwprintf_s(key, _countof(key), _TRUNCATE,
+                         L"phase%luSessionId", (unsigned long)index);
+            WritePrivateProfileStringW(L"Plan", key, queuedId, path);
+            _snwprintf_s(key, _countof(key), _TRUNCATE,
+                         L"phase%luDuration", (unsigned long)index);
+            WriteNumber(path, L"Plan", key, step->durationSeconds);
+            _snwprintf_s(key, _countof(key), _TRUNCATE,
+                         L"phase%luType", (unsigned long)index);
+            WritePrivateProfileStringW(L"Plan", key, queuedPhase, path);
+        }
+    }
+    uint32_t historyCount = IpcHistory_Count(history);
+    WriteNumber(path, L"History", L"count", (long long)historyCount);
+    for (uint32_t index = 0; index < historyCount; index++) {
+        const CatimeIpcSnapshot* snapshot = NULL;
+        wchar_t prefix[16];
+        if (!IpcHistory_Get(history, index, &snapshot)) continue;
+        _snwprintf_s(prefix, _countof(prefix), _TRUNCATE, L"%lu_",
+                     (unsigned long)index);
+        WriteSnapshot(path, L"History", prefix, snapshot);
     }
     WritePrivateProfileStringW(NULL, NULL, NULL, path);
     return TRUE;

@@ -1,11 +1,14 @@
 /** @file ipc_server_session.c UI-thread bridge and external session state. */
 
 #include "ipc/catime_ipc_server.h"
+#include "ipc/catime_ipc_history.h"
 #include "ipc/catime_ipc_persistence.h"
 #include "ipc_server_internal.h"
 #include "timer/timer.h"
 
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #define IPC_UI_TIMEOUT_MS 5000
 typedef struct {
@@ -20,6 +23,8 @@ static CRITICAL_SECTION s_stateLock;
 static BOOL s_lockInitialized = FALSE;
 static BOOL s_applyingUiCommand = FALSE;
 static CatimeIpcState s_state;
+static IpcHistory s_history;
+static uint64_t s_sessionSequence = 0;
 
 static int64_t EpochMilliseconds(void) {
     FILETIME fileTime;
@@ -28,6 +33,28 @@ static int64_t EpochMilliseconds(void) {
     value.LowPart = fileTime.dwLowDateTime;
     value.HighPart = fileTime.dwHighDateTime;
     return (int64_t)(value.QuadPart / 10000ULL) - 11644473600000LL;
+}
+
+static BOOL GenerateSessionId(char* output, size_t capacity) {
+    if (!output || capacity < 24) return FALSE;
+    s_sessionSequence++;
+    int length = snprintf(output, capacity,
+        "catime-%08llx-%04x-%04llx",
+        (unsigned long long)GetTickCount64(),
+        (unsigned)GetCurrentProcessId(),
+        (unsigned long long)s_sessionSequence);
+    return length > 0 && (size_t)length < capacity;
+}
+
+/* Persist the current state plus every unacknowledged terminal record. */
+static void SaveStateWithHistory(void) {
+    CatimeIpcPersistence_Save(&s_state, &s_history);
+}
+
+/* Remember a terminal record so an offline plugin can backfill it later. */
+static void RecordTerminal(const CatimeIpcSnapshot* snapshot) {
+    if (!CatimeIpc_IsTerminalStatus(snapshot->status)) return;
+    IpcHistory_Add(&s_history, snapshot);
 }
 
 static BOOL DispatchUiCommand(const CatimeIpcRequest* request,
@@ -55,7 +82,8 @@ static BOOL DispatchUiCommand(const CatimeIpcRequest* request,
 
 BOOL IpcSession_Execute(const CatimeIpcRequest* request,
                         BOOL* handshaken,
-                        IpcReply* reply) {
+                        IpcReply* reply,
+                        int clientId) {
     if (!request || !handshaken || !reply) return FALSE;
     if (request->command == CATIME_IPC_COMMAND_HELLO) {
         *handshaken = TRUE;
@@ -83,13 +111,15 @@ BOOL IpcSession_Execute(const CatimeIpcRequest* request,
     }
     if (request->command == CATIME_IPC_COMMAND_ACK_EVENT) {
         EnterCriticalSection(&s_stateLock);
-        BOOL removed = IpcEventQueue_Acknowledge(request->sessionId,
-                                                 request->revision);
-        CatimeIpcError error = removed ? CATIME_IPC_ERROR_NONE :
+        int ackState = IpcEventQueue_Acknowledge(
+            clientId, request->sessionId, request->revision);
+        CatimeIpcError error = ackState > 0 ? CATIME_IPC_ERROR_NONE :
             CatimeIpcState_Acknowledge(&s_state, request->sessionId,
                                        request->revision);
-        if (error == CATIME_IPC_ERROR_NONE) {
-            CatimeIpcPersistence_Save(&s_state);
+        if (error == CATIME_IPC_ERROR_NONE &&
+            IpcHistory_Remove(&s_history, request->sessionId,
+                              request->revision)) {
+            SaveStateWithHistory();
         }
         LeaveCriticalSection(&s_stateLock);
         reply->type = error == CATIME_IPC_ERROR_NONE ?
@@ -101,9 +131,7 @@ BOOL IpcSession_Execute(const CatimeIpcRequest* request,
         EnterCriticalSection(&s_stateLock);
         CatimeIpcError error = CatimeIpcState_QueuePhase(&s_state,
             request->sessionId, request->durationSeconds, request->phase);
-        if (error == CATIME_IPC_ERROR_NONE) {
-            CatimeIpcPersistence_Save(&s_state);
-        }
+        if (error == CATIME_IPC_ERROR_NONE) SaveStateWithHistory();
         LeaveCriticalSection(&s_stateLock);
         reply->type = error == CATIME_IPC_ERROR_NONE ?
             IPC_REPLY_EVENT_ACK : IPC_REPLY_ERROR;
@@ -113,22 +141,32 @@ BOOL IpcSession_Execute(const CatimeIpcRequest* request,
     return DispatchUiCommand(request, reply);
 }
 
+static void EnqueueHistoryReplay(void) {
+    const CatimeIpcSnapshot* snapshot = NULL;
+    uint32_t count = IpcHistory_Count(&s_history);
+    for (uint32_t index = 0; index < count; index++) {
+        if (IpcHistory_Get(&s_history, index, &snapshot)) {
+            IpcEventQueue_Push(snapshot);
+            IpcHistory_MarkDelivered(&s_history, index);
+        }
+    }
+}
+
 BOOL IpcSession_Initialize(HWND mainWindow) {
     if (!mainWindow || !IsWindow(mainWindow)) return FALSE;
     InitializeCriticalSection(&s_stateLock);
     s_lockInitialized = TRUE;
     IpcEventQueue_Initialize();
     CatimeIpcState_Init(&s_state);
-    CatimeIpcSnapshot completed;
-    ZeroMemory(&completed, sizeof(completed));
+    IpcHistory_Init(&s_history);
     int64_t now = EpochMilliseconds();
-    if (CatimeIpcPersistence_Load(&s_state, now, &completed) &&
-        completed.status == CATIME_IPC_STATUS_COMPLETED) {
-        IpcEventQueue_Push(&completed);
+    if (CatimeIpcPersistence_Load(&s_state, now, &s_history)) {
+        EnqueueHistoryReplay();
         CatimeIpcSnapshot next;
-        if (CatimeIpcState_AdvanceQueued(&s_state, now, &next)) {
+        if (CatimeIpc_IsTerminalStatus(s_state.snapshot.status) &&
+            CatimeIpcState_AdvanceQueued(&s_state, now, &next)) {
             IpcEventQueue_Push(&next);
-            CatimeIpcPersistence_Save(&s_state);
+            SaveStateWithHistory();
         }
     }
     CatimeIpcSnapshot recovered;
@@ -150,6 +188,7 @@ BOOL IpcSession_Initialize(HWND mainWindow) {
 void IpcSession_Shutdown(void) {
     s_mainWindow = NULL;
     IpcEventQueue_Shutdown();
+    IpcHistory_Init(&s_history);
     if (s_lockInitialized) {
         DeleteCriticalSection(&s_stateLock);
         s_lockInitialized = FALSE;
@@ -185,7 +224,11 @@ LRESULT CatimeIpcServer_HandleUiMessage(HWND window, LPARAM parameter) {
         default: command->error = CATIME_IPC_ERROR_UNKNOWN_COMMAND; break;
     }
     command->hasSnapshot = command->error == CATIME_IPC_ERROR_NONE;
-    if (command->hasSnapshot) CatimeIpcPersistence_Save(&s_state);
+    if (command->hasSnapshot) {
+        IpcEventQueue_Push(&command->snapshot);
+        RecordTerminal(&command->snapshot);
+        SaveStateWithHistory();
+    }
     LeaveCriticalSection(&s_stateLock);
 
     if (command->hasSnapshot) {
@@ -219,11 +262,12 @@ BOOL CatimeIpcServer_NotifyTimeout(void) {
     int64_t now = EpochMilliseconds() + 1000;
     if (CatimeIpcState_Tick(&s_state, now, &completed)) {
         IpcEventQueue_Push(&completed);
+        RecordTerminal(&completed);
         if (CatimeIpcState_AdvanceQueued(&s_state, now, &next)) {
             IpcEventQueue_Push(&next);
             advanced = TRUE;
         }
-        CatimeIpcPersistence_Save(&s_state);
+        SaveStateWithHistory();
     }
     LeaveCriticalSection(&s_stateLock);
     if (advanced) {
@@ -250,7 +294,7 @@ void CatimeIpcServer_NotifyPauseChanged(BOOL paused) {
                 EpochMilliseconds(), CATIME_IPC_CAUSE_TRAY, &updated);
         if (error == CATIME_IPC_ERROR_NONE) {
             IpcEventQueue_Push(&updated);
-            CatimeIpcPersistence_Save(&s_state);
+            SaveStateWithHistory();
         }
     }
     LeaveCriticalSection(&s_stateLock);
@@ -267,7 +311,73 @@ void CatimeIpcServer_NotifyCancelled(void) {
             EpochMilliseconds(), CATIME_IPC_CAUSE_USER_REPLACED,
             &updated) == CATIME_IPC_ERROR_NONE) {
         IpcEventQueue_Push(&updated);
-        CatimeIpcPersistence_Save(&s_state);
+        RecordTerminal(&updated);
+        SaveStateWithHistory();
     }
     LeaveCriticalSection(&s_stateLock);
+}
+
+BOOL CatimeIpcServer_NotifyStarted(uint32_t durationSeconds) {
+    if (!s_lockInitialized || s_applyingUiCommand) return FALSE;
+    char sessionId[CATIME_IPC_MAX_SESSION_ID_BYTES + 1];
+    CatimeIpcSnapshot started;
+    CatimeIpcError error = CATIME_IPC_ERROR_INTERNAL_ERROR;
+    EnterCriticalSection(&s_stateLock);
+    if (GenerateSessionId(sessionId, sizeof(sessionId))) {
+        CatimeIpcSnapshot current;
+        if (CatimeIpcState_Get(&s_state, &current) &&
+            !CatimeIpc_IsTerminalStatus(current.status)) {
+            /* The user explicitly replaces the running/paused session. */
+            CatimeIpcSnapshot replaced;
+            if (CatimeIpcState_Cancel(&s_state, current.sessionId,
+                    EpochMilliseconds(), CATIME_IPC_CAUSE_USER_REPLACED,
+                    &replaced) == CATIME_IPC_ERROR_NONE) {
+                IpcEventQueue_Push(&replaced);
+                RecordTerminal(&replaced);
+            }
+        }
+        error = CatimeIpcState_Start(&s_state, sessionId, durationSeconds,
+                                     CATIME_IPC_PHASE_FOCUS,
+                                     EpochMilliseconds(), &started);
+    }
+    if (error == CATIME_IPC_ERROR_NONE) {
+        IpcEventQueue_Push(&started);
+        SaveStateWithHistory();
+    }
+    LeaveCriticalSection(&s_stateLock);
+    if (error != CATIME_IPC_ERROR_NONE) return FALSE;
+
+    s_applyingUiCommand = TRUE;
+    CLOCK_SHOW_CURRENT_TIME = false;
+    CLOCK_COUNT_UP = false;
+    CLOCK_TOTAL_TIME = (int32_t)started.plannedSeconds;
+    ResetTimer();
+    s_applyingUiCommand = FALSE;
+    return TRUE;
+}
+
+BOOL CatimeIpcServer_NotifyFinished(void) {
+    if (!s_lockInitialized || s_applyingUiCommand) return FALSE;
+    CatimeIpcSnapshot current;
+    CatimeIpcSnapshot updated;
+    BOOL finished = FALSE;
+    EnterCriticalSection(&s_stateLock);
+    if (CatimeIpcState_Get(&s_state, &current) &&
+        !CatimeIpc_IsTerminalStatus(current.status) &&
+        CatimeIpcState_Finish(&s_state, current.sessionId,
+            EpochMilliseconds(), CATIME_IPC_CAUSE_CLIENT,
+            &updated) == CATIME_IPC_ERROR_NONE) {
+        IpcEventQueue_Push(&updated);
+        RecordTerminal(&updated);
+        SaveStateWithHistory();
+        finished = TRUE;
+    }
+    LeaveCriticalSection(&s_stateLock);
+    if (!finished) return FALSE;
+
+    s_applyingUiCommand = TRUE;
+    CLOCK_IS_PAUSED = true;
+    countdown_elapsed_time = (int32_t)updated.focusedSeconds;
+    s_applyingUiCommand = FALSE;
+    return TRUE;
 }

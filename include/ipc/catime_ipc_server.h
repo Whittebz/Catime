@@ -16,5 +16,7 @@ LRESULT CatimeIpcServer_HandleUiMessage(HWND window, LPARAM parameter);
 BOOL CatimeIpcServer_NotifyTimeout(void);
 void CatimeIpcServer_NotifyPauseChanged(BOOL paused);
 void CatimeIpcServer_NotifyCancelled(void);
+BOOL CatimeIpcServer_NotifyStarted(uint32_t durationSeconds);
+BOOL CatimeIpcServer_NotifyFinished(void);
 
 #endif /* CATIME_IPC_SERVER_H */
