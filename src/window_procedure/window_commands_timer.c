@@ -104,15 +104,11 @@ LRESULT CmdRestartTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
     RestartCurrentTimer(hwnd);
     return 0;
 }
-
 LRESULT CmdFinishTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
     (void)wp; (void)lp;
-    if (CatimeIpcServer_NotifyFinished()) {
-        InvalidateRect(hwnd, NULL, TRUE);
-    }
+    if (CatimeIpcServer_NotifyFinished()) InvalidateRect(hwnd, NULL, TRUE);
     return 0;
 }
-
 /* ============================================================================
  * Time Format Commands (Simplified)
  * ============================================================================ */
@@ -279,7 +275,6 @@ BOOL HandleQuickCountdown(HWND hwnd, UINT cmd, int index) {
     }
     return FALSE;
 }
-
 BOOL HandlePomodoroTime(HWND hwnd, UINT cmd, int index) {
     (void)cmd;
     return HandlePomodoroTimeConfig(hwnd, index);
@@ -299,7 +294,6 @@ BOOL HandlePomodoroTimeConfig(HWND hwnd, int selectedIndex) {
         g_AppConfig.pomodoro.times[selectedIndex] <= 0) {
         return FALSE;
     }
-
     /* Use modeless dialog - config saved directly by dialog */
     ShowPomodoroTimeEditDialog(hwnd, selectedIndex);
     return TRUE;

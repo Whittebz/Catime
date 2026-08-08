@@ -8,9 +8,7 @@
 typedef struct {
     UINT commandId;
     CommandHandler handler;
-} CommandDispatchEntry;
-
-static const CommandDispatchEntry COMMAND_DISPATCH_TABLE[] = {
+} CommandDispatchEntry;static const CommandDispatchEntry COMMAND_DISPATCH_TABLE[] = {
     {CLOCK_IDM_CUSTOM_COUNTDOWN, CmdCustomCountdown},
     {CLOCK_IDM_EXIT, CmdExit},
     {CLOCK_IDM_RESET_POSITION, CmdResetPosition},
