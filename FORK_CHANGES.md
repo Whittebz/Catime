@@ -2,6 +2,12 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
+## 1.5.0-wpc.5
+
+- Overlay left and right clicks stay click-through. Only mouse side buttons
+  control focus: X1 starts a 45-minute countdown or pauses/resumes, X2 opens
+  the timer menu. Clicking outside the timer menu dismisses it.
+
 ## 1.5.0-wpc.4
 
 - Overlay right-click and mouse side buttons are captured with a window-local
