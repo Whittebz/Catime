@@ -187,12 +187,6 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             return HTCLIENT;
         }
         if (!CLOCK_EDIT_MODE) {
-            /* Right/side buttons hit the overlay; left clicks still pass through. */
-            if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) ||
-                (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) ||
-                (GetAsyncKeyState(VK_XBUTTON2) & 0x8000)) {
-                return HTCLIENT;
-            }
             if (!HasClickableRegions()) {
                 return HTTRANSPARENT;
             }

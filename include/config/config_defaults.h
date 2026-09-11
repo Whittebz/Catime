@@ -17,7 +17,7 @@
 
 /* Centralized Default Value Constants */
 
-#define DEFAULT_START_TIME_SECONDS      1500
+#define DEFAULT_START_TIME_SECONDS      2700
 #define DEFAULT_QUICK_COUNTDOWN_1       1500
 #define DEFAULT_QUICK_COUNTDOWN_2       600
 #define DEFAULT_QUICK_COUNTDOWN_3       300

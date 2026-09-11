@@ -279,7 +279,8 @@ LRESULT HandleXButtonUp(HWND hwnd, WPARAM wp, LPARAM lp) {
             (CLOCK_COUNT_UP || CLOCK_TOTAL_TIME > 0)) {
             TogglePauseResumeTimer(hwnd);
         } else {
-            StartDefaultCountDown(hwnd);
+            CleanupBeforeTimerAction(hwnd);
+            StartCountdownWithTime(hwnd, 45 * 60);
         }
     } else if (button == XBUTTON2) {
         ShowContextMenu(hwnd);

@@ -221,7 +221,12 @@ void ShowContextMenu(HWND hwnd) {
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(hwnd);
-    TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    UINT selectedCommand = TrackPopupMenu(
+        hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
+        pt.x, pt.y, 0, hwnd, NULL);
     PostMessage(hwnd, WM_NULL, 0, 0);
+    if (selectedCommand != 0 && IsWindow(hwnd)) {
+        SendMessageW(hwnd, WM_COMMAND, MAKEWPARAM(selectedCommand, 0), 0);
+    }
     DestroyMenu(hMenu);
 }

@@ -1,6 +1,6 @@
 /**
  * @file window_overlay_pointer.c
- * @brief Capture right/side-button clicks on the overlay without eating left clicks.
+ * @brief Capture overlay mouse side buttons; left and right clicks pass through.
  */
 
 #include "window_procedure/window_overlay_pointer.h"
@@ -36,17 +36,6 @@ static LRESULT CALLBACK OverlayMouseHookProc(int code, WPARAM msg, LPARAM data) 
         return CallNextHookEx(g_overlayHook, code, msg, data);
     }
 
-    if (msg == WM_RBUTTONUP) {
-        if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
-            PostMessageW(g_overlayHwnd, WM_RBUTTONDOWN, MK_CONTROL, 0);
-        } else {
-            PostMessageW(g_overlayHwnd, WM_CONTEXTMENU, (WPARAM)g_overlayHwnd, 0);
-        }
-        return 1;
-    }
-    if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK) {
-        return 1;
-    }
     if (msg == WM_XBUTTONUP) {
         xbutton = HIWORD(mouse->mouseData);
         PostMessageW(g_overlayHwnd, WM_XBUTTONUP, MAKEWPARAM(0, xbutton), 0);

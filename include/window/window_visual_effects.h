@@ -17,8 +17,8 @@
  * @param hwnd Window handle
  * @param enable TRUE to enable click-through, FALSE to make window interactive
  *
- * @details Overlay pass-through uses WM_NCHITTEST so left clicks miss the
- *          clock while right/side buttons can still hit it.
+ * @details Overlay pass-through uses WM_NCHITTEST so left and right clicks
+ *          miss the clock. Side buttons are captured separately.
  */
 void SetClickThrough(HWND hwnd, BOOL enable);
 
