@@ -8,6 +8,7 @@
 #include "config.h"
 #include "drag_scale.h"
 #include "window_procedure/window_events.h"
+#include "window_procedure/window_overlay_pointer.h"
 #include "taskbar_monitor.h"
 #include "timer/main_timer.h"
 #include "window/window_visual_effects.h"
@@ -39,6 +40,7 @@ BOOL HandleWindowCreate(HWND hwnd) {
     }
 
     SetClickThrough(hwnd, !CLOCK_EDIT_MODE);
+    OverlayPointer_Install(hwnd);
 
     /* OLE drag/drop is enabled lazily while edit mode is active. */
 
@@ -80,6 +82,7 @@ void HandleWindowDestroy(HWND hwnd) {
     
     KillTimer(hwnd, TIMER_ID_TOPMOST_ENFORCE);
     CleanupWindowDesktopIntegrationState(hwnd);
+    OverlayPointer_Uninstall();
     CleanupWindowVisualEffects(hwnd);
     
     TaskbarMonitor_Shutdown();
