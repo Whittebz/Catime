@@ -2,6 +2,12 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
+## 1.5.0-wpc.6
+
+- Clicking outside the overlay timer menu dismisses it even while the clock
+  stays click-through. End Focus is on the root menu and actually stops the
+  countdown after notifying Week Planner.
+
 ## 1.5.0-wpc.5
 
 - Overlay left and right clicks stay click-through. Only mouse side buttons
