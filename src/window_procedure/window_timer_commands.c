@@ -62,18 +62,14 @@ void StartCountUp(HWND hwnd) {
 }
 void StartDefaultCountDown(HWND hwnd) {
     CleanupBeforeTimerAction(hwnd);
+    if (g_AppConfig.timer.default_start_time > 0) {
+        StartCountdownWithTime(hwnd, g_AppConfig.timer.default_start_time);
+        return;
+    }
     if (current_pomodoro_phase != POMODORO_PHASE_IDLE) {
         ResetPomodoroState();
     }
-    if (g_AppConfig.timer.default_start_time > 0) {
-        countdown_message_shown = false;
-        TimerModeParams params = {g_AppConfig.timer.default_start_time, TRUE, TRUE, TRUE};  /* showWindow = TRUE */
-        SwitchTimerMode(hwnd, TIMER_MODE_COUNTDOWN, &params);
-        MainTimer_Stop();
-        ResetTimerWithInterval(hwnd);
-    } else {
-        PostMessage(hwnd, WM_COMMAND, CLOCK_IDM_CUSTOM_COUNTDOWN, 0);
-    }
+    PostMessage(hwnd, WM_COMMAND, CLOCK_IDM_CUSTOM_COUNTDOWN, 0);
 }
 void StartPomodoroTimer(HWND hwnd) {
     CleanupBeforeTimerAction(hwnd);

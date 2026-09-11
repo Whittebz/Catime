@@ -68,7 +68,6 @@ HWND CreateMainWindow(HINSTANCE instance, int commandShow) {
     }
 
     DWORD extendedStyle = WS_EX_LAYERED | WS_EX_TOOLWINDOW;
-    if (!CLOCK_EDIT_MODE) extendedStyle |= WS_EX_TRANSPARENT;
     if (CLOCK_WINDOW_EFFECTIVE_TOPMOST) {
         extendedStyle |= WS_EX_TOPMOST;
     } else {

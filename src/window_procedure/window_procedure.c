@@ -105,6 +105,7 @@ static const MessageDispatchEntry MESSAGE_DISPATCH_TABLE[] = {
     {WM_LBUTTONDBLCLK, HandleLButtonDblClk},
     {WM_RBUTTONDOWN, HandleRButtonDown},
     {WM_RBUTTONUP, HandleRButtonUp},
+    {WM_XBUTTONUP, HandleXButtonUp},
     {WM_CONTEXTMENU, HandleContextMenu},
     {WM_CAPTURECHANGED, HandleCaptureChanged},
     {WM_CANCELMODE, HandleCancelMode},
@@ -177,8 +178,8 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     }
     if (msg == WM_MOUSEACTIVATE) {
-        if (!CLOCK_EDIT_MODE && !CLOCK_WINDOW_TOPMOST) {
-            return MA_NOACTIVATE;  /* Don't activate window on click */
+        if (!CLOCK_EDIT_MODE) {
+            return MA_NOACTIVATE;
         }
     }
     if (msg == WM_NCHITTEST) {
@@ -186,17 +187,23 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             return HTCLIENT;
         }
         if (!CLOCK_EDIT_MODE) {
+            /* Right/side buttons hit the overlay; left clicks still pass through. */
+            if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) ||
+                (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) ||
+                (GetAsyncKeyState(VK_XBUTTON2) & 0x8000)) {
+                return HTCLIENT;
+            }
             if (!HasClickableRegions()) {
-                return HTTRANSPARENT;  /* Pass through */
+                return HTTRANSPARENT;
             }
             POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
             RECT rcWindow;
             GetWindowRect(hwnd, &rcWindow);
             UpdateRegionPositions(rcWindow.left, rcWindow.top);
             if (IsClickableRegionAt(pt)) {
-                return HTCLIENT;  /* Allow click */
+                return HTCLIENT;
             }
-            return HTTRANSPARENT;  /* Pass through */
+            return HTTRANSPARENT;
         }
     }
     if (DispatchAppMessage(hwnd, msg)) {

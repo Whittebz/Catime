@@ -267,3 +267,22 @@ LRESULT HandleLButtonDblClk(HWND hwnd, WPARAM wp, LPARAM lp) {
     }
     return DefWindowProc(hwnd, WM_LBUTTONDBLCLK, wp, lp);
 }
+
+LRESULT HandleXButtonUp(HWND hwnd, WPARAM wp, LPARAM lp) {
+    (void)lp;
+    if (CLOCK_EDIT_MODE) {
+        return 0;
+    }
+    UINT button = GET_XBUTTON_WPARAM(wp);
+    if (button == XBUTTON1) {
+        if (!CLOCK_SHOW_CURRENT_TIME &&
+            (CLOCK_COUNT_UP || CLOCK_TOTAL_TIME > 0)) {
+            TogglePauseResumeTimer(hwnd);
+        } else {
+            StartDefaultCountDown(hwnd);
+        }
+    } else if (button == XBUTTON2) {
+        ShowContextMenu(hwnd);
+    }
+    return TRUE;
+}

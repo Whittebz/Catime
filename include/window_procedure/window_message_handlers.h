@@ -32,6 +32,7 @@ LRESULT HandleSettingChange(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleThemeChanged(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleRButtonUp(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleRButtonDown(HWND hwnd, WPARAM wp, LPARAM lp);
+LRESULT HandleXButtonUp(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleContextMenu(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleCaptureChanged(HWND hwnd, WPARAM wp, LPARAM lp);
 LRESULT HandleCancelMode(HWND hwnd, WPARAM wp, LPARAM lp);

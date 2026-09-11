@@ -2,6 +2,13 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
+## Unreleased
+
+- Overlay clock stays click-through for left clicks. Pointing at the clock and
+  using the mouse back/forward buttons or right-click starts or controls focus
+  without a global hotkey: X1 starts the default countdown or pauses/resumes,
+  X2 and right-click open the timer menu.
+
 ## 1.5.0-wpc.2
 
 - Multi-vault support: the named pipe now accepts up to 8 concurrent clients
