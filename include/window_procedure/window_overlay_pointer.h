@@ -10,5 +10,7 @@
 
 BOOL OverlayPointer_Install(HWND hwnd);
 void OverlayPointer_Uninstall(void);
+void OverlayPointer_BeginMenu(void);
+void OverlayPointer_EndMenu(void);
 
 #endif /* WINDOW_OVERLAY_POINTER_H */

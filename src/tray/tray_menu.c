@@ -33,6 +33,7 @@
 #include "taskbar_monitor.h"
 #include "tray/tray.h"
 #include "window_procedure/window_message_handlers.h"
+#include "window_procedure/window_overlay_pointer.h"
 
 /* External dependencies needed for menu display logic */
 extern char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER];
@@ -133,16 +134,26 @@ void ShowContextMenu(HWND hwnd) {
     
     HMENU hMenu = CreatePopupMenu();
     if (!hMenu) return;
+
+    BOOL timerActive = !CLOCK_SHOW_CURRENT_TIME &&
+                       (CLOCK_COUNT_UP || CLOCK_TOTAL_TIME > 0);
+    BOOL timerRunning = timerActive &&
+                        (CLOCK_COUNT_UP || countdown_elapsed_time < CLOCK_TOTAL_TIME);
+    if (timerActive) {
+        const wchar_t* topPauseResumeText = CLOCK_IS_PAUSED ?
+            GetLocalizedString(NULL, L"Resume") :
+            GetLocalizedString(NULL, L"Pause");
+        AppendMenuW(hMenu, MF_STRING, CLOCK_IDM_TIMER_PAUSE_RESUME, topPauseResumeText);
+        AppendMenuW(hMenu, MF_STRING, CLOCK_IDM_TIMER_FINISH,
+                    GetLocalizedString(NULL, L"End Focus"));
+        AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+    }
     
     HMENU hTimerManageMenu = CreatePopupMenu();
     if (!hTimerManageMenu) {
         DestroyMenu(hMenu);
         return;
     }
-    
-    BOOL timerRunning = (!CLOCK_SHOW_CURRENT_TIME && 
-                         (CLOCK_COUNT_UP || 
-                          (!CLOCK_COUNT_UP && CLOCK_TOTAL_TIME > 0 && countdown_elapsed_time < CLOCK_TOTAL_TIME)));
     
     const wchar_t* pauseResumeText = CLOCK_IS_PAUSED ? 
                                     GetLocalizedString(NULL, L"Resume") : 
@@ -157,7 +168,7 @@ void ShowContextMenu(HWND hwnd) {
                CLOCK_IDM_TIMER_RESTART, 
                GetLocalizedString(NULL, L"Start Over"));
     
-    AppendMenuW(hTimerManageMenu, MF_STRING | (timerRunning ? MF_ENABLED : MF_GRAYED),
+    AppendMenuW(hTimerManageMenu, MF_STRING | (timerActive ? MF_ENABLED : MF_GRAYED),
                CLOCK_IDM_TIMER_FINISH,
                GetLocalizedString(NULL, L"End Focus"));
     
@@ -221,9 +232,11 @@ void ShowContextMenu(HWND hwnd) {
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(hwnd);
+    OverlayPointer_BeginMenu();
     UINT selectedCommand = TrackPopupMenu(
         hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD,
         pt.x, pt.y, 0, hwnd, NULL);
+    OverlayPointer_EndMenu();
     PostMessage(hwnd, WM_NULL, 0, 0);
     if (selectedCommand != 0 && IsWindow(hwnd)) {
         SendMessageW(hwnd, WM_COMMAND, MAKEWPARAM(selectedCommand, 0), 0);

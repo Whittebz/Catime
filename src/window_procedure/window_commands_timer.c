@@ -106,12 +106,11 @@ LRESULT CmdRestartTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
 }
 LRESULT CmdFinishTimer(HWND hwnd, WPARAM wp, LPARAM lp) {
     (void)wp; (void)lp;
-    if (CatimeIpcServer_NotifyFinished()) InvalidateRect(hwnd, NULL, TRUE);
+    CatimeIpcServer_NotifyFinished();
+    CleanupBeforeTimerAction(hwnd);
+    SwitchTimerMode(hwnd, TIMER_MODE_SHOW_TIME, NULL);
     return 0;
 }
-/* ============================================================================
- * Time Format Commands (Simplified)
- * ============================================================================ */
 
 LRESULT CmdTimeFormat(HWND hwnd, TimeFormatType format) {
     TimeFormatType previousFormat = g_AppConfig.display.time_format.format;

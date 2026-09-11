@@ -8,10 +8,31 @@
 #include "log.h"
 #include "window.h"
 
+#include <wchar.h>
 #include <windowsx.h>
 
 static HHOOK g_overlayHook = NULL;
 static HWND g_overlayHwnd = NULL;
+static BOOL g_menuOpen = FALSE;
+
+static BOOL IsPopupMenuWindow(HWND hwnd) {
+    wchar_t className[32];
+
+    if (!hwnd) {
+        return FALSE;
+    }
+    className[0] = L'\0';
+    return GetClassNameW(hwnd, className, (int)_countof(className)) > 0 &&
+           wcscmp(className, L"#32768") == 0;
+}
+
+static BOOL IsPointOverPopupMenu(POINT pt) {
+    HWND hit = WindowFromPoint(pt);
+    if (!hit) {
+        return FALSE;
+    }
+    return IsPopupMenuWindow(hit) || IsPopupMenuWindow(GetAncestor(hit, GA_ROOT));
+}
 
 static BOOL IsPointOverOverlay(POINT pt) {
     RECT bounds;
@@ -30,6 +51,17 @@ static LRESULT CALLBACK OverlayMouseHookProc(int code, WPARAM msg, LPARAM data) 
     UINT xbutton;
 
     if (code < 0 || !mouse) {
+        return CallNextHookEx(g_overlayHook, code, msg, data);
+    }
+    if (g_menuOpen &&
+        (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN ||
+         msg == WM_XBUTTONDOWN)) {
+        if (!IsPointOverPopupMenu(mouse->pt)) {
+            EndMenu();
+        }
+        if (msg == WM_XBUTTONDOWN) {
+            return 1;
+        }
         return CallNextHookEx(g_overlayHook, code, msg, data);
     }
     if (CLOCK_EDIT_MODE || !IsPointOverOverlay(mouse->pt)) {
@@ -67,9 +99,18 @@ BOOL OverlayPointer_Install(HWND hwnd) {
 }
 
 void OverlayPointer_Uninstall(void) {
+    g_menuOpen = FALSE;
     if (g_overlayHook) {
         UnhookWindowsHookEx(g_overlayHook);
         g_overlayHook = NULL;
     }
     g_overlayHwnd = NULL;
+}
+
+void OverlayPointer_BeginMenu(void) {
+    g_menuOpen = TRUE;
+}
+
+void OverlayPointer_EndMenu(void) {
+    g_menuOpen = FALSE;
 }
