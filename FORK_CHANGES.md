@@ -2,7 +2,7 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
-## Unreleased
+## 1.5.0-wpc.3
 
 - Overlay clock stays click-through for left clicks. Pointing at the clock and
   using the mouse back/forward buttons or right-click starts or controls focus
