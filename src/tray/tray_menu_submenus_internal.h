@@ -38,6 +38,7 @@
 #include "text_effect.h"
 
 extern char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER];
+extern char CLOCK_FOCUS_TEXT_COLOR[COLOR_HEX_BUFFER];
 extern char CLOCK_TIMEOUT_WEBSITE_URL[MAX_PATH];
 extern char CLOCK_TIMEOUT_FILE_PATH[MAX_PATH];
 extern int current_pomodoro_time_index;

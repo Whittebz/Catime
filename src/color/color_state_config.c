@@ -4,6 +4,7 @@
 #include "config.h"
 #include "notification.h"
 #include "log.h"
+#include "timer/timer.h"
 #include "../resource/resource.h"
 #include <stdio.h>
 #include <string.h>
@@ -27,17 +28,24 @@ BOOL NormalizeColorConfigValue(const char* color_input, char* outValue,
     return outValue[0] != '\0';
 }
 
+BOOL IsFocusDisplayColorActive(void) {
+    return !CLOCK_SHOW_CURRENT_TIME;
+}
+
 BOOL WriteConfigColor(const char* color_input) {
     char colorValue[COLOR_HEX_BUFFER];
+    char* slot = IsFocusDisplayColorActive() ? CLOCK_FOCUS_TEXT_COLOR : CLOCK_TEXT_COLOR;
+    const char* key = IsFocusDisplayColorActive()
+        ? "CLOCK_FOCUS_TEXT_COLOR" : "CLOCK_TEXT_COLOR";
     if (!NormalizeColorConfigValue(color_input, colorValue, sizeof(colorValue)))
         return FALSE;
     char config_path[MAX_PATH];
     GetConfigPath(config_path, MAX_PATH);
     char currentValue[COLOR_HEX_BUFFER];
     BOOL currentValueComplete = ReadIniStringExact(
-        INI_SECTION_DISPLAY, "CLOCK_TEXT_COLOR", "", currentValue,
+        INI_SECTION_DISPLAY, key, "", currentValue,
         sizeof(currentValue), config_path);
-    BOOL runtimeMatches = strcmp(CLOCK_TEXT_COLOR, colorValue) == 0;
+    BOOL runtimeMatches = strcmp(slot, colorValue) == 0;
     BOOL configMatches = currentValueComplete &&
                          strcmp(currentValue, colorValue) == 0;
     if (runtimeMatches && configMatches) {
@@ -45,12 +53,11 @@ BOOL WriteConfigColor(const char* color_input) {
         RefreshToastNotificationColors();
         return TRUE;
     }
-    if (!configMatches && !WriteIniString(INI_SECTION_DISPLAY,
-                                           "CLOCK_TEXT_COLOR", colorValue,
+    if (!configMatches && !WriteIniString(INI_SECTION_DISPLAY, key, colorValue,
                                            config_path)) return FALSE;
     if (!runtimeMatches) {
-        strncpy(CLOCK_TEXT_COLOR, colorValue, sizeof(CLOCK_TEXT_COLOR) - 1);
-        CLOCK_TEXT_COLOR[sizeof(CLOCK_TEXT_COLOR) - 1] = '\0';
+        strncpy(slot, colorValue, COLOR_HEX_BUFFER - 1);
+        slot[COLOR_HEX_BUFFER - 1] = '\0';
     }
     if (strchr(colorValue, '_') != NULL) GetGradientTypeByName(colorValue);
     RefreshToastNotificationColors();

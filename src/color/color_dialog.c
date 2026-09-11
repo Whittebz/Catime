@@ -178,7 +178,9 @@ COLORREF ShowColorDialog(HWND hwnd) {
     static COLORREF acrCustClr[MAX_CUSTOM_COLORS] = {0};
 
     COLORREF initialColor = RGB(255, 255, 255);
-    ColorStringToColorRef(CLOCK_TEXT_COLOR, &initialColor);
+    char activeColor[COLOR_HEX_BUFFER];
+    GetActiveColor(activeColor, sizeof(activeColor));
+    ColorStringToColorRef(activeColor, &initialColor);
 
     PopulateCustomColors(acrCustClr, MAX_CUSTOM_COLORS);
     size_t customColorCount = g_loadedColorCount;

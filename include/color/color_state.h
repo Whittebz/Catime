@@ -39,6 +39,11 @@ extern size_t COLOR_OPTIONS_COUNT;
 /** @brief Active clock color */
 extern char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER];
 
+/** @brief Color used while a countdown or count-up is showing */
+extern char CLOCK_FOCUS_TEXT_COLOR[COLOR_HEX_BUFFER];
+
+BOOL IsFocusDisplayColorActive(void);
+
 /* ============================================================================
  * Color Palette Management
  * ============================================================================ */

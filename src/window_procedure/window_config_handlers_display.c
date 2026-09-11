@@ -20,6 +20,7 @@
 #include <string.h>
 
 extern char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER];
+extern char CLOCK_FOCUS_TEXT_COLOR[COLOR_HEX_BUFFER];
 
 LRESULT HandleAppDisplayChanged(HWND hwnd) {
     BOOL changed = FALSE;
@@ -36,6 +37,19 @@ LRESULT HandleAppDisplayChanged(HWND hwnd) {
     if (strcmp(normalizedTextColor, CLOCK_TEXT_COLOR) != 0) {
         strncpy_s(CLOCK_TEXT_COLOR, sizeof(CLOCK_TEXT_COLOR),
                   normalizedTextColor, _TRUNCATE);
+        changed = TRUE;
+        textColorChanged = TRUE;
+    }
+
+    char focusColorBuf[COLOR_HEX_BUFFER];
+    ReadConfigStr(CFG_SECTION_DISPLAY, CFG_KEY_FOCUS_TEXT_COLOR, CLOCK_FOCUS_TEXT_COLOR,
+                  focusColorBuf, sizeof(focusColorBuf));
+    char normalizedFocusColor[COLOR_HEX_BUFFER];
+    WindowConfigInternal_NormalizeTextColor(focusColorBuf, normalizedFocusColor,
+                                   sizeof(normalizedFocusColor));
+    if (strcmp(normalizedFocusColor, CLOCK_FOCUS_TEXT_COLOR) != 0) {
+        strncpy_s(CLOCK_FOCUS_TEXT_COLOR, sizeof(CLOCK_FOCUS_TEXT_COLOR),
+                  normalizedFocusColor, _TRUNCATE);
         changed = TRUE;
         textColorChanged = TRUE;
     }

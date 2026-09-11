@@ -34,6 +34,7 @@ typedef struct {
 
     /* Display */
     char textColor[COLOR_HEX_BUFFER];
+    char focusTextColor[COLOR_HEX_BUFFER];
     int baseFontSize;
     char fontFileName[MAX_PATH];
     char fontInternalName[256];

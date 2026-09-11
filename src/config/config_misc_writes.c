@@ -40,6 +40,7 @@ BOOL WriteConfigKeyValue(const char* key, const char* value) {
         strcmp(key, "FONT_LICENSE_VERSION_ACCEPTED") == 0) {
         section = INI_SECTION_GENERAL;
     } else if (strncmp(key, "CLOCK_TEXT_COLOR", 16) == 0 ||
+               strncmp(key, "CLOCK_FOCUS_TEXT_COLOR", 22) == 0 ||
                strncmp(key, "FONT_FILE_NAME", 14) == 0 ||
                strncmp(key, "CLOCK_BASE_FONT_SIZE", 20) == 0 ||
                strncmp(key, "WINDOW_SCALE", 12) == 0 ||

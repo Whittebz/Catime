@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "config/config_defaults.h"
+#include "color/color_state.h"
 #include "font.h"
 #include "language.h"
 #include "text_effect.h"
@@ -27,6 +28,9 @@ BOOL ConfigWriter_CollectGeneralDisplay(ConfigItemBuilder* builder) {
 
     if (!ConfigWriter_AppendString(builder, INI_SECTION_DISPLAY,
                                    "CLOCK_TEXT_COLOR", CLOCK_TEXT_COLOR) ||
+        !ConfigWriter_AppendString(builder, INI_SECTION_DISPLAY,
+                                   "CLOCK_FOCUS_TEXT_COLOR",
+                                   CLOCK_FOCUS_TEXT_COLOR) ||
         !ConfigWriter_AppendInt(builder, INI_SECTION_DISPLAY,
                                 "CLOCK_BASE_FONT_SIZE",
                                 CLOCK_BASE_FONT_SIZE) ||

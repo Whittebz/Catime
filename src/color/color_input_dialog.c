@@ -131,9 +131,11 @@ INT_PTR CALLBACK ColorDlgProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lPar
             if (hwndEdit) {
                 ColorInputEdit_Attach(hwndEdit);
 
-                if (CLOCK_TEXT_COLOR[0] != '\0') {
+                char activeColor[COLOR_HEX_BUFFER];
+                GetActiveColor(activeColor, sizeof(activeColor));
+                if (activeColor[0] != '\0') {
                     wchar_t wcolor[COLOR_BUFFER_SIZE] = {0};
-                    if (MultiByteToWideChar(CP_UTF8, 0, CLOCK_TEXT_COLOR, -1,
+                    if (MultiByteToWideChar(CP_UTF8, 0, activeColor, -1,
                                             wcolor, sizeof(wcolor) / sizeof(wchar_t)) > 0) {
                         Dialog_InitEditWithValue(hwndEdit, wcolor);
                     } else {

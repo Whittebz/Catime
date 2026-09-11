@@ -22,6 +22,7 @@
     "%LOCALAPPDATA%\\Catime\\resources\\animations\\"
 
 #define DEFAULT_TEXT_COLOR "#FFFFFF_#00FFFF"
+#define DEFAULT_FOCUS_TEXT_COLOR "#FFB347"
 #define DEFAULT_WHITE_COLOR "#FFFFFF"
 #define DEFAULT_BLACK_COLOR "#000000"
 #define DEFAULT_FONT_NAME "Terminess Nerd Font Propo Essence.ttf"

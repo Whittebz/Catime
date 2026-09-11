@@ -1,10 +1,10 @@
 #include "menu_preview_internal.h"
+#include "color/color_state.h"
 #include "config.h"
 #include "font.h"
 #include "text_effect.h"
 
 extern char FONT_INTERNAL_NAME[MAX_PATH];
-extern char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER];
 extern BOOL IS_PREVIEWING;
 extern char PREVIEW_FONT_NAME[MAX_PATH];
 extern char PREVIEW_INTERNAL_NAME[MAX_PATH];
@@ -12,7 +12,8 @@ extern char PREVIEW_INTERNAL_NAME[MAX_PATH];
 void GetActiveColor(char* outColor, size_t size) {
     if (!outColor || !size) return;
     const char* value = g_previewState.type == PREVIEW_TYPE_COLOR
-        ? g_previewState.data.colorHex : CLOCK_TEXT_COLOR;
+        ? g_previewState.data.colorHex
+        : (IsFocusDisplayColorActive() ? CLOCK_FOCUS_TEXT_COLOR : CLOCK_TEXT_COLOR);
     strncpy_s(outColor, size, value, _TRUNCATE);
 }
 

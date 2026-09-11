@@ -97,6 +97,9 @@ void ApplyDisplaySettings(const ConfigSnapshot* snapshot) {
     if (!snapshot) return;
     strncpy(CLOCK_TEXT_COLOR, snapshot->textColor, sizeof(CLOCK_TEXT_COLOR) - 1);
     CLOCK_TEXT_COLOR[sizeof(CLOCK_TEXT_COLOR) - 1] = '\0';
+    strncpy(CLOCK_FOCUS_TEXT_COLOR, snapshot->focusTextColor,
+            sizeof(CLOCK_FOCUS_TEXT_COLOR) - 1);
+    CLOCK_FOCUS_TEXT_COLOR[sizeof(CLOCK_FOCUS_TEXT_COLOR) - 1] = '\0';
     CLOCK_BASE_FONT_SIZE = snapshot->baseFontSize;
     strncpy(FONT_FILE_NAME, snapshot->fontFileName, sizeof(FONT_FILE_NAME) - 1);
     FONT_FILE_NAME[sizeof(FONT_FILE_NAME) - 1] = '\0';
@@ -262,12 +265,8 @@ void ApplyHotkeySettings(const ConfigSnapshot* snapshot) {
 void ApplyRecentFilesSettings(const ConfigSnapshot* snapshot) {
     if (!snapshot) return;
     int recentFilesCount = snapshot->recentFilesCount;
-    if (recentFilesCount < 0) {
-        recentFilesCount = 0;
-    }
-    if (recentFilesCount > MAX_RECENT_FILES) {
-        recentFilesCount = MAX_RECENT_FILES;
-    }
+    if (recentFilesCount < 0) recentFilesCount = 0;
+    if (recentFilesCount > MAX_RECENT_FILES) recentFilesCount = MAX_RECENT_FILES;
     ZeroMemory(g_AppConfig.recent_files.files, sizeof(g_AppConfig.recent_files.files));
     g_AppConfig.recent_files.count = recentFilesCount;
     for (int i = 0; i < recentFilesCount; i++) {

@@ -89,6 +89,11 @@ BOOL ValidateColorConfig(ConfigSnapshot* snapshot) {
         safe_strncpy(snapshot->textColor, "#000001", sizeof(snapshot->textColor));
         modified = TRUE;
     }
+    if (snapshot->focusTextColor[0] == '\0') {
+        safe_strncpy(snapshot->focusTextColor, DEFAULT_FOCUS_TEXT_COLOR,
+                     sizeof(snapshot->focusTextColor));
+        modified = TRUE;
+    }
     return modified;
 }
 BOOL ValidateTimerConfig(ConfigSnapshot* snapshot) {

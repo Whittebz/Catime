@@ -44,6 +44,7 @@ Utf8String ToUtf8(const wchar_t* wide);
  * ============================================================================ */
 
 #define CFG_KEY_TEXT_COLOR           "CLOCK_TEXT_COLOR"
+#define CFG_KEY_FOCUS_TEXT_COLOR     "CLOCK_FOCUS_TEXT_COLOR"
 #define CFG_KEY_BASE_FONT_SIZE       "CLOCK_BASE_FONT_SIZE"
 #define CFG_KEY_WINDOW_POS_X         "CLOCK_WINDOW_POS_X"
 #define CFG_KEY_WINDOW_POS_Y         "CLOCK_WINDOW_POS_Y"

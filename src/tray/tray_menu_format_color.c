@@ -114,7 +114,9 @@ void BuildColorSubmenu(HMENU hMenu) {
         mii.cbSize = sizeof(mii);
         mii.fMask = MIIM_STRING | MIIM_ID | MIIM_STATE | MIIM_FTYPE;
         mii.fType = MFT_STRING | MFT_OWNERDRAW;
-        mii.fState = strcmp(CLOCK_TEXT_COLOR, hexColor) == 0 ? MFS_CHECKED : MFS_UNCHECKED;
+        mii.fState = strcmp(IsFocusDisplayColorActive()
+            ? CLOCK_FOCUS_TEXT_COLOR : CLOCK_TEXT_COLOR, hexColor) == 0
+            ? MFS_CHECKED : MFS_UNCHECKED;
         mii.wID = CMD_COLOR_OPTIONS_BASE + (UINT)i;
         mii.dwTypeData = hexColorW;
 

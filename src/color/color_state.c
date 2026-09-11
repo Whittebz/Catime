@@ -22,6 +22,7 @@
 PredefinedColor* COLOR_OPTIONS = NULL;
 size_t COLOR_OPTIONS_COUNT = 0;
 char CLOCK_TEXT_COLOR[COLOR_HEX_BUFFER] = "#FFFFFF";
+char CLOCK_FOCUS_TEXT_COLOR[COLOR_HEX_BUFFER] = DEFAULT_FOCUS_TEXT_COLOR;
 void GetConfigPath(char* path, size_t size);
 BOOL CreateDefaultConfig(const char* config_path);
 BOOL WriteConfig(const char* config_path);
