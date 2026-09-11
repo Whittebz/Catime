@@ -2,6 +2,11 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
+## 1.5.0-wpc.4
+
+- Overlay right-click and mouse side buttons are captured with a window-local
+  mouse hook so they still work while left clicks pass through the floating clock.
+
 ## 1.5.0-wpc.3
 
 - Overlay clock stays click-through for left clicks. Pointing at the clock and

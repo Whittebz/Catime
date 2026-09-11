@@ -8,7 +8,7 @@
 
 #define CATIME_VERSION "1.5.0"
 /* Week Planner Calendar fork identity; keep upstream update semantics intact. */
-#define CATIME_DISTRIBUTION_VERSION CATIME_VERSION "-wpc.3"
+#define CATIME_DISTRIBUTION_VERSION CATIME_VERSION "-wpc.4"
 
 /* Kept in the aggregate header for the embedded-resource packaging tool. */
 #define IDR_COMPRESSED_ASSETS 1200
