@@ -2,6 +2,12 @@
 
 This fork retains Catime's Apache-2.0 license and upstream attribution.
 
+## 1.5.0-wpc.7
+
+- Clock mode and focus mode use different colors. The existing color picker
+  edits whichever mode is showing: wall-clock color while idle, focus color
+  during countdown. Default focus color is amber `#FFB347`.
+
 ## 1.5.0-wpc.6
 
 - Clicking outside the overlay timer menu dismisses it even while the clock
